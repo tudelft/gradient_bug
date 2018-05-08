@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+
+<launch>
+  <node pkg="multirange_wall_following" type="WF_gazebo.py" name="wall_follower_multi_ranger" output="screen">
+  </node>
+  <!-- Start Gazebo with wg world running in (max) realtime -->
+  <include file="start.launch"/>
+
+  <!-- Spawn simulated quadrotor uav -->
+  <include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" >
+    <arg name="model" value="$(find hector_quadrotor_description)/urdf/quadrotor_with_multiranger.gazebo.xacro"/>
+    <!--arg name="controllers" value="
+        controller/attitude
+        controller/velocity
+        controller/position
+        "/-->
+  </include>
+
+  <!--include file="$(find hector_quadrotor_teleop)/launch/xbox_controller.launch" >
+    <arg name="control_mode" value="position"/>
+  </include-->
+
+</launch>
