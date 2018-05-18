@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <launch>
-  <node pkg="multirange_wall_following" type="WF_gazebo.py" name="wall_follower_multi_ranger" output="screen">
+  <node pkg="multirange_wall_following" type="bug_gazebo.py" name="wall_follower_multi_ranger" output="screen">
   </node>
   <!-- Start Gazebo with wg world running in (max) realtime -->
   <include file="start.launch"/>

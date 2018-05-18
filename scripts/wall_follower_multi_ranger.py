@@ -17,7 +17,7 @@ from amcl.cfg.AMCLConfig import inf
 
 
 class WallFollower:
-    
+
     ref_distance_from_wall = 1.0
     max_speed = 0.2
     front_range = 0.0
@@ -29,20 +29,21 @@ class WallFollower:
     angle=2000
     calculate_angle_first_time = True;
     around_corner_first_turn = True;
-    
+
     def init(self,new_ref_distance_from_wall):
         self.ref_distance_from_wall = new_ref_distance_from_wall
-            
+        self.state = "TURN_TO_FIND_WALL"
+
     def take_off(self):
         twist = Twist()
         twist.linear.z = 0.1;
         return twist
-    
+
     def hover(self):
         twist = Twist()
         return twist
-    
-    
+
+
     def twistForward(self):
         v = self.max_speed
         w = 0
@@ -50,18 +51,18 @@ class WallFollower:
         twist.linear.x = v
         twist.angular.z = w
         return twist
-    
+
     def twistForwardAlongWall(self, range):
-        twist = Twist()    
+        twist = Twist()
         twist.linear.x = self.max_speed
         if  self.logicIsCloseTo(self.ref_distance_from_wall, range, 0.1) == False:
             if range>self.ref_distance_from_wall:
                 twist.linear.y =  - self.max_speed/3
             else:
                 twist.linear.y =  self.max_speed /3
-    
+
         return twist
-    
+
     def twistTurn(self,rate):
         v = 0.0
         w = rate
@@ -69,7 +70,7 @@ class WallFollower:
         twist.linear.x = v
         twist.angular.z = w
         return twist
-    
+
     def twistTurnandAdjust(self,rate, range):
         v = 0.0
         w = rate
@@ -83,7 +84,7 @@ class WallFollower:
         twist.linear.x = v
         twist.angular.z = w
         return twist
-    
+
     def twistTurnAroundCorner(self, radius):
         v = self.max_speed
         w = -v/radius
@@ -91,34 +92,27 @@ class WallFollower:
         twist.linear.x = v
         twist.angular.z = w
         return twist
-        
-    
-        
-    
+
+
+
+
     def logicIsCloseTo(self,real_value = 0.0, checked_value =0.0, margin=0.05):
-        
+
         if real_value> checked_value-margin and real_value< checked_value+margin:
-            return True 
+            return True
         else:
             return False
-    
+
     # Transition state and restart the timer
     def transition(self, newState):
         state = newState
         self.state_start_time = time.time()
         return state
-            
-    def wall_follower(self, front_range, right_range, current_heading):    
 
-            twist = Twist()
+    def wall_follower(self, front_range, right_range, current_heading):
 
-            if front_range == None:
-                front_range = inf
-            
-            if right_range == None:
-                right_range = inf
 
-                
+
             #handle state transitions
             if self.state == "TAKE_OFF":
                 if self.altitude > 0.5:
@@ -129,20 +123,21 @@ class WallFollower:
             elif self.state == "HOVER":
                 print state
             elif self.state == "TURN_TO_FIND_WALL":
+                print(front_range,right_range)
                 if (right_range < self.ref_distance_from_wall+0.4 and front_range < self.ref_distance_from_wall+0.4):
                     self.previous_heading = current_heading;
-                    self.angle = 2000
-                    self.calculate_angle_first_time = True
+                    self.angle = 1.57 - math.atan(front_range/right_range)
                     self.state = self.transition("TURN_TO_ALLIGN_TO_WALL")
                 if (right_range < 1.0 and front_range > 2.0):
                     self.around_corner_first_turn = True
                     self.state = self.transition("ROTATE_AROUND_WALL")
             elif self.state =="TURN_TO_ALLIGN_TO_WALL":
-
+                print current_heading
+                print self.previous_heading
+                print self.angle
                 if current_heading-self.previous_heading>self.angle - 0.05:
                     self.state = self.transition("FORWARD_ALONG_WALL")
-                    print current_heading
-                    print self.previous_heading
+
             elif self.state =="FORWARD_ALONG_WALL":
                 if right_range > 2:
                     self.around_corner_first_turn = True
@@ -156,12 +151,12 @@ class WallFollower:
             elif self.state == "ROTATE_IN_CORNER":
                 if current_heading-self.previous_heading > 0.8 - 0.1:
                     self.state = self.transition("TURN_TO_FIND_WALL")
-    
-    
+
+
             print self.state
-            
-                    
-                    
+
+
+
             #handle state ations
             if self.state == "TAKE_OFF":
                 twist = self.take_off()
@@ -177,9 +172,6 @@ class WallFollower:
                 twist = self.hover()
                 if (time.time() - self.state_start_time) > 1:
                     twist = self.twistTurn(self.max_rate)
-                    if self.calculate_angle_first_time == True and front_range is not inf and right_range is not inf:
-                        self.angle = 1.57 - math.atan(front_range/right_range)
-                        self.calculate_angle_first_time = False
             elif self.state =="FORWARD_ALONG_WALL":
                 twist = self.twistForwardAlongWall(right_range)
             elif self.state == "ROTATE_AROUND_WALL":
@@ -194,16 +186,16 @@ class WallFollower:
 
             elif self.state == "ROTATE_IN_CORNER":
                 twist = self.twistTurn(self.max_rate);
-                
-            
-            return twist
-    
-    
-    
 
-            
-        
-        
+
+            return twist
+
+
+
+
+
+
+
 
 if __name__ == '__main__':
     try:
