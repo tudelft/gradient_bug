@@ -38,9 +38,10 @@ class ComController:
     heading_prev = 0.0
     heading = 0.0
 
-    def init(self,new_ref_distance_from_wall):
+    def init(self,new_ref_distance_from_wall,max_speed_ref = 0.2):
         self.ref_distance_from_wall = new_ref_distance_from_wall
         self.state = "FORWARD"
+        self.max_speed = max_speed_ref
 
     def take_off(self):
         twist = Twist()
@@ -78,7 +79,6 @@ class ComController:
         return state
 
     def stateMachine(self, front_range, right_range, current_heading, angle_goal, distance_goal):
-
         twist = Twist()
 
         if front_range == None:
@@ -93,11 +93,11 @@ class ComController:
         if self.state == "FORWARD":
             if front_range < 1.0:#self.ref_distance_from_wall:
                 self.state = self.transition("WALL_FOLLOWING")
-                self.wall_follower.init(self.ref_distance_from_wall)
+                self.wall_follower.init(self.ref_distance_from_wall,self.max_speed)
                 self.heading_prev = self.heading
         elif self.state == "WALL_FOLLOWING":
             #print(self.heading,self.heading_prev,wraptopi(self.heading-self.heading_prev),angle_goal)
-            if self.logicIsCloseTo(self.heading,angle_goal,0.1) and  front_range > 1.2 :
+            if self.logicIsCloseTo(current_heading,wraptopi(angle_goal),0.05) and  front_range > 1.2 :
             #if self.heading < self.heading_prev and front_range > 1.2:
                 self.state = "FORWARD"
 

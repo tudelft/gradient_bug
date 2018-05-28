@@ -144,6 +144,10 @@ class WF_crazyflie:
                                     if distance_to_goal<0.4  and already_reached_far_enough is False:
                                         state = self.transition("TURN_180")
                                         already_reached_far_enough = True
+                                        distance_to_goal = 10
+                                    if distance_to_goal<0.4  and already_reached_far_enough is True:
+                                        keep_flying = False
+
                                 if state =="TURN_180":
                                     if time.time()-self.state_start_time > 1 and logicIsCloseTo(stabilization.heading,wraptopi(angle_goal),0.1):
                                         state = self.transition("STATE_MACHINE")

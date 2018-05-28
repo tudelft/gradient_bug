@@ -94,7 +94,7 @@ class bug_gazebo:
     def rosloop(self):
         bug_controller = ComController()
 
-        bug_controller.init(1.0)
+        bug_controller.init(1.0,0.5)
         twist = Twist()
         pub = rospy.Publisher('cmd_vel', Twist, queue_size=1)
 
@@ -110,7 +110,7 @@ class bug_gazebo:
             if self.already_reached_far_enough:
                 angle_goal = self.angle_to_goal
             else:
-                angle_goal =  self.already_reached_far_enough
+                angle_goal =  self.angle_outbound
 
 
             if self.state == "TAKE_OFF":
@@ -122,7 +122,12 @@ class bug_gazebo:
                 if self.distance_to_goal<0.5 and self.already_reached_far_enough is False:
                     self.state = self.transition("TURN_180")
                     self.already_reached_far_enough = True
+                    self.distance_to_goal = 10
                     prev_heading = self.current_heading
+                if self.distance_to_goal<0.5 and self.already_reached_far_enough is True:
+                    self.state = self.transition("STOP")
+
+
             if self.state =="TURN_180":
 
                 if time.time()-self.state_start_time > 1 and logicIsCloseTo(self.current_heading,wraptopi(angle_goal),0.1):
@@ -137,9 +142,12 @@ class bug_gazebo:
                 twist.linear.x = 0.0;
                 twist.linear.y = 0.0;
                 twist.angular.z = 0.3;
-
-
-
+            if self.state =="STOP":
+                twist.linear.x = 0.0;
+                twist.linear.y = 0.0;
+                twist.angular.z = 0.0;
+            enable_motors  = rospy.ServiceProxy('enable_motors', EnableMotors)
+            enable_motors(True)
             print self.state
             pub.publish(twist)
             rate.sleep()
