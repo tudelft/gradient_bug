@@ -39,21 +39,23 @@ class bug_gazebo:
     distance_to_goal = 0.0
     angle_to_goal =  0.0
     already_reached_far_enough = False
-    DISTANCE_TO_TRAVEL = 8.0
+    DISTANCE_TO_TRAVEL = 10.0
     angle_outbound = 0.0
     state_start_time = 0.0
 
 
     def poseCB(self,state):
-        self.altitude=state.pose[2].position.z
+
+        index_drone = len(state.pose)-1
+        self.altitude=state.pose[index_drone].position.z
 
         #self.distance_goal = math.sqrt(math.pow(state.pose[2].position.x,2)+math.pow(state.pose[2].position.y,2))
         if self.already_reached_far_enough:
-            self.distance_to_goal =  math.sqrt(math.pow(state.pose[2].position.x,2)+math.pow(state.pose[2].position.y,2))
-            self.angle_to_goal = wraptopi(np.pi+math.atan(state.pose[2].position.y/state.pose[2].position.x))
+            self.distance_to_goal =  math.sqrt(math.pow(state.pose[index_drone].position.x,2)+math.pow(state.pose[index_drone].position.y,2))
+            self.angle_to_goal = wraptopi(np.pi+math.atan(state.pose[index_drone].position.y/state.pose[index_drone].position.x))
         else:
-            self.distance_to_goal = self.DISTANCE_TO_TRAVEL - math.sqrt(math.pow(state.pose[2].position.x,2)+math.pow(state.pose[2].position.y,2))
-            self.angle_to_goal = wraptopi(math.atan(state.pose[2].position.y/state.pose[2].position.x))
+            self.distance_to_goal = self.DISTANCE_TO_TRAVEL - math.sqrt(math.pow(state.pose[index_drone].position.x,2)+math.pow(state.pose[index_drone].position.y,2))
+            self.angle_to_goal = wraptopi(math.atan(state.pose[index_drone].position.y/state.pose[index_drone].position.x))
 
 
 

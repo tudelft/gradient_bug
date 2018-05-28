@@ -12,8 +12,10 @@ import tf
 import math
 from _ast import IsNot
 from amcl.cfg.AMCLConfig import inf
+import numpy as np
 
-
+def wraptopi(number):
+    return  ( number + np.pi) % (2 * np.pi ) - np.pi
 
 
 class WallFollower:
@@ -135,7 +137,7 @@ class WallFollower:
             print current_heading
             print self.previous_heading
             print self.angle
-            if current_heading-self.previous_heading>self.angle - 0.05:
+            if wraptopi(current_heading-self.previous_heading)>self.angle - 0.05:
                 self.state = self.transition("FORWARD_ALONG_WALL")
 
         elif self.state =="FORWARD_ALONG_WALL":

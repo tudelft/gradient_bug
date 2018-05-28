@@ -31,7 +31,7 @@ from wall_following_controller import WallFollowerController
 from com_controller import ComController
 
 URI = 'radio://0/80/250K'
-DISTANCE_TO_TRAVEL = 7.0
+DISTANCE_TO_TRAVEL = 7.5
 def logicIsCloseTo( real_value = 0.0, checked_value =0.0, margin=0.05):
 
     if real_value> checked_value-margin and real_value< checked_value+margin:
@@ -134,7 +134,7 @@ class WF_crazyflie:
                                 if already_reached_far_enough:
                                     angle_goal = angle_to_goal
                                 else:
-                                    angle_goal =  angle_outbound
+                                    angle_goal =  angle_outbound - 1.0
 
                                 time.sleep(0.1)
 

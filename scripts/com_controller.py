@@ -97,7 +97,10 @@ class ComController:
                 self.heading_prev = self.heading
         elif self.state == "WALL_FOLLOWING":
             #print(self.heading,self.heading_prev,wraptopi(self.heading-self.heading_prev),angle_goal)
-            if self.logicIsCloseTo(current_heading,wraptopi(angle_goal),0.05) and  front_range > 1.2 :
+            if self.logicIsCloseTo(current_heading,wraptopi(angle_goal),0.05) and  front_range > 1.4 :
+                print current_heading
+                print wraptopi(angle_goal)
+
             #if self.heading < self.heading_prev and front_range > 1.2:
                 self.state = "FORWARD"
 
