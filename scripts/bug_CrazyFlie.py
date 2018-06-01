@@ -30,8 +30,7 @@ from cflib.crazyflie.log import LogConfig
 from wall_following_controller import WallFollowerController
 from com_controller import ComController
 
-URI = 'radio://0/80/250K'
-DISTANCE_TO_TRAVEL = 7.5
+DISTANCE_TO_TRAVEL = 4
 def logicIsCloseTo( real_value = 0.0, checked_value =0.0, margin=0.05):
 
     if real_value> checked_value-margin and real_value< checked_value+margin:
@@ -52,7 +51,7 @@ class WF_crazyflie:
     state = "TAKE_OFF"
     current_heading = 0.0
     state_start_time = 0
-    URI = 'radio://0/80/250K'
+    URI = 'radio://0/40/250K'
 
     if len(sys.argv) > 1:
         URI = sys.argv[1]
@@ -86,6 +85,11 @@ class WF_crazyflie:
         lg_states.add_variable('stabilizer.yaw')
         lg_states.add_variable('kalman_states.ox')
         lg_states.add_variable('kalman_states.oy')
+        lg_states.add_variable('rssiCR.rssi')
+        lg_states.add_variable('rssiCR.pos_x')
+        lg_states.add_variable('rssiCR.pos_y')
+
+        fh = open("log_test.txt", "w")
 
         with SyncCrazyflie(self.URI, cf=cf) as scf:
             with MotionCommander(scf,0.8) as motion_commander:
@@ -93,11 +97,15 @@ class WF_crazyflie:
                     with Stabilization(scf) as stabilization:
                         with SyncLogger(scf, lg_states) as logger_states:
                             bug_controller = ComController()
-                            bug_controller.init(0.5)
+                            bug_controller.init(0.7,0.5)
 
 
                             keep_flying = True
                             time.sleep(1)
+
+                            param_name = "rssiCR.start"
+                            param_value = "1"
+                            cf.param.set_value(param_name, param_value)
 
                             twist.linear.x = 0.2
                             twist.linear.y = 0.0
@@ -120,23 +128,31 @@ class WF_crazyflie:
                                     data = log_entry_1[1]
 
                                     heading = math.radians(float(data["stabilizer.yaw"]));
-                                    kalman_x =float(data["kalman_states.ox"])
-                                    kalman_y =float(data["kalman_states.oy"])
+                                    pos_x =-1*float(data["rssiCR.pos_x"])#float(data["kalman_states.ox"])-0.5
+                                    pos_y =-1*float(data["rssiCR.pos_y"])#float(data["kalman_states.oy"])-1.5
+                                    kalman_x =-float(data["kalman_states.ox"])-0.5
+                                    kalman_y = float(data["kalman_states.oy"])-1.5
+
+                                    if pos_x == 0:
+                                        pos_x = 0.02
+                                    if pos_y == 0:
+                                        pos_y = 0.02
                                     if already_reached_far_enough:
                                         distance_to_goal = math.sqrt(math.pow(kalman_x,2) + math.pow(kalman_y,2))
-                                        angle_to_goal = wraptopi(np.pi+math.atan(kalman_y/kalman_x))
+                                        angle_to_goal = wraptopi(np.pi+math.atan(pos_y/pos_x))
                                     else:
                                         distance_to_goal = DISTANCE_TO_TRAVEL - math.sqrt(math.pow(kalman_x,2) + math.pow(kalman_y,2))
-                                        angle_to_goal = wraptopi(math.atan(kalman_y/kalman_x))
+                                        angle_to_goal = wraptopi(math.atan(pos_y/pos_x))
 
                                     break
 
                                 if already_reached_far_enough:
                                     angle_goal = angle_to_goal
                                 else:
-                                    angle_goal =  angle_outbound - 1.0
+                                    angle_goal =  angle_outbound - 0.8
 
                                 time.sleep(0.1)
+                                print("stabilization",stabilization.heading)
 
                                 if state =="STATE_MACHINE":
                                     print(distance_to_goal)
@@ -145,7 +161,7 @@ class WF_crazyflie:
                                         state = self.transition("TURN_180")
                                         already_reached_far_enough = True
                                         distance_to_goal = 10
-                                    if distance_to_goal<0.4  and already_reached_far_enough is True:
+                                    if distance_to_goal<1.0  and already_reached_far_enough is True:
                                         keep_flying = False
 
                                 if state =="TURN_180":
@@ -162,6 +178,10 @@ class WF_crazyflie:
 
 
 
+                                fh.write("%f, %f,  %f, %f, %f, %f, %f\n"% (twist.linear.x, -1*math.degrees(twist.angular.z), distance_to_goal,angle_to_goal, stabilization.heading, kalman_x, kalman_y))
+
+
+
                                 motion_commander._set_vel_setpoint(twist.linear.x,twist.linear.y,0,-1*math.degrees(twist.angular.z))
 
                                 if multi_ranger.up < 0.2 and multi_ranger.up is not None:
@@ -171,6 +191,7 @@ class WF_crazyflie:
                             motion_commander.stop()
 
                             print("demo terminated")
+                            fh.close()
 
 
 #         rate = rospy.Rate(10) # 10hz
