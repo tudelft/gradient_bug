@@ -130,7 +130,7 @@ class WF_crazyflie:
                                     heading = math.radians(float(data["stabilizer.yaw"]));
                                     pos_x =-1*float(data["rssiCR.pos_x"])#float(data["kalman_states.ox"])-0.5
                                     pos_y =-1*float(data["rssiCR.pos_y"])#float(data["kalman_states.oy"])-1.5
-                                    kalman_x =-float(data["kalman_states.ox"])-0.5
+                                    kalman_x = float(data["kalman_states.ox"])-0.5
                                     kalman_y = float(data["kalman_states.oy"])-1.5
 
                                     if pos_x == 0:
@@ -139,10 +139,13 @@ class WF_crazyflie:
                                         pos_y = 0.02
                                     if already_reached_far_enough:
                                         distance_to_goal = math.sqrt(math.pow(kalman_x,2) + math.pow(kalman_y,2))
-                                        angle_to_goal = wraptopi(np.pi+math.atan(pos_y/pos_x))
+                                        #angle_to_goal = wraptopi(np.pi+math.atan(pos_y/pos_x))
+                                        angle_to_goal = wraptopi(np.pi+math.atan(kalman_y/kalman_x))
                                     else:
                                         distance_to_goal = DISTANCE_TO_TRAVEL - math.sqrt(math.pow(kalman_x,2) + math.pow(kalman_y,2))
-                                        angle_to_goal = wraptopi(math.atan(pos_y/pos_x))
+                                        #angle_to_goal = wraptopi(math.atan(pos_y/pos_x))
+                                        angle_to_goal = wraptopi(math.atan(kalman_y/kalman_x))
+
 
                                     break
 
@@ -178,7 +181,7 @@ class WF_crazyflie:
 
 
 
-                                fh.write("%f, %f,  %f, %f, %f, %f, %f\n"% (twist.linear.x, -1*math.degrees(twist.angular.z), distance_to_goal,angle_to_goal, stabilization.heading, kalman_x, kalman_y))
+                                fh.write("%f, %f,  %f, %f, %f, %f, %f, %f, %f\n"% (twist.linear.x, -1*math.degrees(twist.angular.z), distance_to_goal,angle_to_goal, stabilization.heading, kalman_x, kalman_y, pos_x, pos_y))
 
 
 
