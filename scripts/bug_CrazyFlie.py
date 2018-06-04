@@ -30,7 +30,7 @@ from cflib.crazyflie.log import LogConfig
 from wall_following_controller import WallFollowerController
 from com_controller import ComController
 
-DISTANCE_TO_TRAVEL = 4
+DISTANCE_TO_TRAVEL = 8.5
 def logicIsCloseTo( real_value = 0.0, checked_value =0.0, margin=0.05):
 
     if real_value> checked_value-margin and real_value< checked_value+margin:
@@ -146,13 +146,12 @@ class WF_crazyflie:
                                         #angle_to_goal = wraptopi(math.atan(pos_y/pos_x))
                                         angle_to_goal = wraptopi(math.atan(kalman_y/kalman_x))
 
-
                                     break
 
                                 if already_reached_far_enough:
                                     angle_goal = angle_to_goal
                                 else:
-                                    angle_goal =  angle_outbound - 0.8
+                                    angle_goal = angle_outbound - 0.6
 
                                 time.sleep(0.1)
                                 print("stabilization",stabilization.heading)
