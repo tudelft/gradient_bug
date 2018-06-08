@@ -10,7 +10,7 @@ from sensor_msgs.msg import Imu
 from wall_follower_multi_ranger import WallFollower
 
 import time
-import tf
+#import tf
 import math
 from _ast import IsNot
 
@@ -98,8 +98,6 @@ class ComController:
         elif self.state == "WALL_FOLLOWING":
             #print(self.heading,self.heading_prev,wraptopi(self.heading-self.heading_prev),angle_goal)
             if self.logicIsCloseTo(current_heading,wraptopi(angle_goal),0.05) and  front_range > 1.4 :
-                print current_heading
-                print wraptopi(angle_goal)
 
             #if self.heading < self.heading_prev and front_range > 1.2:
                 self.state = "FORWARD"
@@ -111,7 +109,7 @@ class ComController:
         elif self.state == "WALL_FOLLOWING":
             twist = self.wall_follower.wall_follower(front_range,right_range, current_heading)
 
-        print self.state
+        print(self.state)
 
         self.lastTwist = twist
         return twist

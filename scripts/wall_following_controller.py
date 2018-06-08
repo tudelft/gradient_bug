@@ -10,7 +10,7 @@ from sensor_msgs.msg import Imu
 from wall_follower_multi_ranger import WallFollower
 
 import time
-import tf
+#import tf
 import math
 from _ast import IsNot
 from amcl.cfg.AMCLConfig import inf
@@ -92,7 +92,7 @@ class WallFollowerController:
         elif self.state == "WALL_FOLLOWING":
             twist = self.wall_follower.wall_follower(front_range,right_range, current_heading)
 
-        print self.state
+        print(self.state)
 
         self.lastTwist = twist
         return twist

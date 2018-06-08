@@ -8,7 +8,7 @@ from hector_uav_msgs.srv import EnableMotors
 from sensor_msgs.msg import LaserScan
 from sensor_msgs.msg import Imu
 import time
-import tf
+#import tf
 import math
 from _ast import IsNot
 from amcl.cfg.AMCLConfig import inf
@@ -123,7 +123,7 @@ class WallFollower:
             if front_range < self.ref_distance_from_wall:
                 self.state = self.transition("TURN_TO_FIND_WALL")
         elif self.state == "HOVER":
-            print state
+            print(state)
         elif self.state == "TURN_TO_FIND_WALL":
             print(front_range,right_range)
             if (right_range < self.ref_distance_from_wall+0.4 and front_range < self.ref_distance_from_wall+0.4):
@@ -134,9 +134,6 @@ class WallFollower:
                 self.around_corner_first_turn = True
                 self.state = self.transition("ROTATE_AROUND_WALL")
         elif self.state =="TURN_TO_ALLIGN_TO_WALL":
-            print current_heading
-            print self.previous_heading
-            print self.angle
             if wraptopi(current_heading-self.previous_heading)>self.angle - 0.05:
                 self.state = self.transition("FORWARD_ALONG_WALL")
 
@@ -155,7 +152,7 @@ class WallFollower:
                 self.state = self.transition("TURN_TO_FIND_WALL")
 
 
-        print self.state
+        print(self.state)
 
 
 
@@ -177,7 +174,6 @@ class WallFollower:
         elif self.state =="FORWARD_ALONG_WALL":
             twist = self.twistForwardAlongWall(right_range)
         elif self.state == "ROTATE_AROUND_WALL":
-            print right_range
             if right_range>self.ref_distance_from_wall+0.5 and self.around_corner_first_turn:
                 twist = self.twistTurn(-self.max_rate)
             elif right_range>self.ref_distance_from_wall+0.5:

@@ -1,16 +1,23 @@
 #!/usr/bin/env python
 # license removed for brevity
+'''
 import rospy
 from std_msgs.msg import String
+'''
+
+
 from geometry_msgs.msg import Twist
+'''
+
 from gazebo_msgs.msg import ModelStates
 from hector_uav_msgs.srv import EnableMotors
 from sensor_msgs.msg import LaserScan
 from sensor_msgs.msg import Imu
+'''
 
 
 import time
-import tf
+#import tf
 import math
 from _ast import IsNot
 import logging
@@ -30,7 +37,32 @@ from cflib.crazyflie.log import LogConfig
 from wall_following_controller import WallFollowerController
 from com_controller import ComController
 
-DISTANCE_TO_TRAVEL = 8.5
+
+
+
+## OPTITRACK stuff
+#Callbacks for optitrack
+from NatNetClient import NatNetClient
+pos = []
+check = 0
+
+def receiveNewFrame( frameNumber, markerSetCount, unlabeledMarkersCount, rigidBodyCount, skeletonCount,
+                    labeledMarkerCount, latency, timecode, timecodeSub, timestamp, isRecording, trackedModelsChanged ):
+    check = 1
+
+def receiveRigidBodyFrame( id, position, rotation ):
+    global pos
+    if id == 3:
+        pos = position
+        #print( "Received frame for rigid body", id )
+
+# Intialization of Optirack
+streamingClient = NatNetClient()
+streamingClient.newFrameListener = receiveNewFrame
+streamingClient.rigidBodyListener = receiveRigidBodyFrame
+streamingClient.run()
+
+DISTANCE_TO_TRAVEL = 9.0
 def logicIsCloseTo( real_value = 0.0, checked_value =0.0, margin=0.05):
 
     if real_value> checked_value-margin and real_value< checked_value+margin:
@@ -178,17 +210,19 @@ class WF_crazyflie:
                                     twist.linear.y = 0.0;
                                     twist.angular.z = 0.3;
 
-
-
-                                fh.write("%f, %f,  %f, %f, %f, %f, %f, %f, %f\n"% (twist.linear.x, -1*math.degrees(twist.angular.z), distance_to_goal,angle_to_goal, stabilization.heading, kalman_x, kalman_y, pos_x, pos_y))
-
+                                    #OPTITRACK STUFF
+                                if len(pos)>0:
+                                    fh.write("%f, %f,  %f, %f, %f, %f, %f, %f, %f, %f, %f\n"% (twist.linear.x, -1*math.degrees(twist.angular.z), distance_to_goal,angle_to_goal, stabilization.heading, kalman_x, kalman_y, pos_x, pos_y,pos[0],pos[2]))
+                                else:
+                                    fh.write("%f, %f,  %f, %f, %f, %f, %f, %f, %f, 0, 0\n"% (twist.linear.x, -1*math.degrees(twist.angular.z), distance_to_goal,angle_to_goal, stabilization.heading, kalman_x, kalman_y, pos_x, pos_y))
 
 
                                 motion_commander._set_vel_setpoint(twist.linear.x,twist.linear.y,0,-1*math.degrees(twist.angular.z))
 
-                                if multi_ranger.up < 0.2 and multi_ranger.up is not None:
-                                    print("up range is activated")
-                                    keep_flying = False
+                                if multi_ranger.up is not None :
+                                    if multi_ranger.up < 0.2:
+                                        print("up range is activated")
+                                        keep_flying = False
 
                             motion_commander.stop()
 
