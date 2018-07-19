@@ -45,6 +45,11 @@ class bug_gazebo:
     DISTANCE_TO_TRAVEL = 10.0
     angle_outbound = 0.0
     state_start_time = 0.0
+    
+    goal_coord_x = [2, 0]
+    goal_coord_y = [0, 0]
+    
+    coord_index = 0
 
 
     def poseCB(self,state):
@@ -52,14 +57,12 @@ class bug_gazebo:
         index_drone = len(state.pose)-1
         self.altitude=state.pose[index_drone].position.z
 
-        #self.distance_goal = math.sqrt(math.pow(state.pose[2].position.x,2)+math.pow(state.pose[2].position.y,2))
-        if self.already_reached_far_enough:
-            self.distance_to_goal =  math.sqrt(math.pow(state.pose[index_drone].position.x,2)+math.pow(state.pose[index_drone].position.y,2))
-            self.angle_to_goal = wraptopi(np.pi+math.atan(state.pose[index_drone].position.y/state.pose[index_drone].position.x))
-        else:
-            self.distance_to_goal = self.DISTANCE_TO_TRAVEL - math.sqrt(math.pow(state.pose[index_drone].position.x,2)+math.pow(state.pose[index_drone].position.y,2))
-            self.angle_to_goal = wraptopi(math.atan(state.pose[index_drone].position.y/state.pose[index_drone].position.x))
+        rel_coord_x = self.goal_coord_x[self.coord_index]-state.pose[index_drone].position.x;
+        rel_coord_y = self.goal_coord_y[self.coord_index]-state.pose[index_drone].position.y;
 
+        self.distance_to_goal = math.sqrt(math.pow(rel_coord_x,2)+math.pow(rel_coord_y,2))
+
+        self.angle_to_goal = wraptopi(np.arctan2(rel_coord_y,rel_coord_x))
 
 
 
@@ -117,10 +120,6 @@ class bug_gazebo:
 
         while not rospy.is_shutdown():
 
-            if self.already_reached_far_enough:
-                angle_goal = self.angle_to_goal
-            else:
-                angle_goal =  self.angle_outbound
 
 
             if self.state == "TAKE_OFF":
@@ -128,27 +127,25 @@ class bug_gazebo:
                     self.state = self.transition("STATE_MACHINE")
                     self.angle_outbound = self.current_heading;
             if self.state =="STATE_MACHINE":
-                print self.distance_to_goal
-                if self.distance_to_goal<0.5 and self.already_reached_far_enough is False:
-                    self.state = self.transition("TURN_180")
-                    self.already_reached_far_enough = True
+                if self.distance_to_goal<0.5 and self.coord_index is not len(self.goal_coord_x)-1:
+                    self.state = self.transition("TURN_TO_GOAL")
+                    self.coord_index = self.coord_index + 1
+                #Put distance and angle to goal to an high number to prevent it from stopping right away
                     self.distance_to_goal = 10
+                    self.angle_to_goal = 10
                     prev_heading = self.current_heading
-                if self.distance_to_goal<0.5 and self.already_reached_far_enough is True:
+                if self.distance_to_goal<0.5 and self.coord_index is len(self.goal_coord_x)-1:
                     self.state = self.transition("STOP")
-
-
-            if self.state =="TURN_180":
-
-                if time.time()-self.state_start_time > 1 and logicIsCloseTo(self.current_heading,wraptopi(angle_goal),0.1):
+            if self.state =="TURN_TO_GOAL":
+                if time.time()-self.state_start_time > 1 and logicIsCloseTo(self.current_heading,wraptopi(self.angle_to_goal),0.1):
                     self.state = self.transition("STATE_MACHINE")
-
-
+                    
+                    
             if self.state == "TAKE_OFF":
                 twist.linear.z = 0.1;
             if self.state =="STATE_MACHINE":
-                twist = bug_controller.stateMachine(self.front_range,self.right_range, self.left_range, self.current_heading, wraptopi(angle_goal), self.distance_to_goal)
-            if self.state =="TURN_180":
+                twist = bug_controller.stateMachine(self.front_range,self.right_range, self.left_range, self.current_heading, wraptopi(self.angle_to_goal), self.distance_to_goal)
+            if self.state =="TURN_TO_GOAL":
                 twist.linear.x = 0.0;
                 twist.linear.y = 0.0;
                 twist.angular.z = 0.3;
