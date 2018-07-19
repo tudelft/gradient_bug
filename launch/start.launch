@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <launch>
-  <arg name="world" default="$(find multirange_wall_following)/world/ublocks.world"/>
+  <arg name="world" default="$(find multirange_wall_following)/world/block.world"/>
   <arg name="gui" default="true"/>
   <arg name="args" default=""/>
   

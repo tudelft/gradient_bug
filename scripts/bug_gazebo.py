@@ -10,6 +10,7 @@ from sensor_msgs.msg import Imu
 #from wall_follower_multi_ranger import WallFollower
 from wall_following_controller import WallFollowerController
 from com_controller import ComController
+from com_angle_controller import ComAngleController
 
 import time
 import tf
@@ -33,6 +34,8 @@ class bug_gazebo:
     # Callbacks
     front_range = 0.0
     right_range = 0.0
+    left_range = 0.0
+
     altitude = 0.0
     state = "TAKE_OFF"
     current_heading = 0.0
@@ -72,6 +75,9 @@ class bug_gazebo:
 
     def rightRangeCB(self,range):
         self.right_range = range.ranges[0]
+        
+    def leftRangeCB(self,range):
+        self.left_range = range.ranges[0]
 
 
             # Transition state and restart the timer
@@ -87,6 +93,8 @@ class bug_gazebo:
         rospy.Subscriber("/raw_imu", Imu, self.imuCB)
         rospy.Subscriber("/multi_ranger/front_range_sensor_value", LaserScan, self.frontRangeCB)
         rospy.Subscriber("/multi_ranger/right_range_sensor_value", LaserScan, self.rightRangeCB)
+        rospy.Subscriber("/multi_ranger/left_range_sensor_value", LaserScan, self.leftRangeCB)
+
         rospy.sleep(1.)
 
         rospy.wait_for_service('enable_motors')
@@ -94,7 +102,7 @@ class bug_gazebo:
         enable_motors(True)
 
     def rosloop(self):
-        bug_controller = ComController()
+        bug_controller = ComAngleController()
 
         bug_controller.init(1.0,0.5)
         twist = Twist()
@@ -139,7 +147,7 @@ class bug_gazebo:
             if self.state == "TAKE_OFF":
                 twist.linear.z = 0.1;
             if self.state =="STATE_MACHINE":
-                twist = bug_controller.stateMachine(self.front_range,self.right_range, self.current_heading, wraptopi(angle_goal), self.distance_to_goal)
+                twist = bug_controller.stateMachine(self.front_range,self.right_range, self.left_range, self.current_heading, wraptopi(angle_goal), self.distance_to_goal)
             if self.state =="TURN_180":
                 twist.linear.x = 0.0;
                 twist.linear.y = 0.0;
