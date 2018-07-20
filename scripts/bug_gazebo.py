@@ -11,6 +11,7 @@ from sensor_msgs.msg import Imu
 from wall_following_controller import WallFollowerController
 from com_controller import ComController
 from com_angle_controller import ComAngleController
+from com_angle_loop_controller import ComAngleLoopController
 
 import time
 import tf
@@ -46,8 +47,8 @@ class bug_gazebo:
     angle_outbound = 0.0
     state_start_time = 0.0
     
-    goal_coord_x = [2, 0]
-    goal_coord_y = [0, 0]
+    goal_coord_x = [8, 0]
+    goal_coord_y = [2, 0]
     
     coord_index = 0
 
@@ -105,7 +106,7 @@ class bug_gazebo:
         enable_motors(True)
 
     def rosloop(self):
-        bug_controller = ComAngleController()
+        bug_controller = ComAngleLoopController()
 
         bug_controller.init(1.0,0.5)
         twist = Twist()
@@ -124,7 +125,7 @@ class bug_gazebo:
 
             if self.state == "TAKE_OFF":
                 if self.altitude > 0.5:
-                    self.state = self.transition("STATE_MACHINE")
+                    self.state = self.transition("TURN_TO_GOAL")
                     self.angle_outbound = self.current_heading;
             if self.state =="STATE_MACHINE":
                 if self.distance_to_goal<0.5 and self.coord_index is not len(self.goal_coord_x)-1:
@@ -148,6 +149,7 @@ class bug_gazebo:
             if self.state =="TURN_TO_GOAL":
                 twist.linear.x = 0.0;
                 twist.linear.y = 0.0;
+                twist.linear.z = 0.0;
                 twist.angular.z = 0.3;
             if self.state =="STOP":
                 twist.linear.x = 0.0;

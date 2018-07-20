@@ -36,6 +36,8 @@ from cflib.crazyflie.log import LogConfig
 
 from wall_following_controller import WallFollowerController
 from com_controller import ComController
+from com_angle_controller import ComAngleController
+from com_angle_loop_controller import ComAngleLoopController
 
 
 
@@ -83,7 +85,22 @@ class WF_crazyflie:
     state = "TAKE_OFF"
     current_heading = 0.0
     state_start_time = 0
-    URI = 'radio://0/40/250K'
+    #Crazyflie 1
+    #URI = 'radio://0/40/250K/E7E7E7E7EA'
+    #Crazyflie 2
+    #URI = 'radio://0/60/250K/E7E7E7E7EB'
+    #Crazyflie 3
+    #URI = 'radio://0/80/250K/E7E7E7E7E7'
+    #Crazyflie 3
+    URI = 'radio://0/50/250K/E7E7E7E7EC'
+
+    angle_to_goal = 0.0
+    distance_to_goal = 0.0
+    
+    goal_coord_x = [8, 0]
+    goal_coord_y = [0, 0]
+    
+    coord_index = 0
 
     if len(sys.argv) > 1:
         URI = sys.argv[1]
@@ -124,13 +141,14 @@ class WF_crazyflie:
         lg_states.add_variable('rssiCR.pos_y')
 
         fh = open("log_test.txt", "w")
+    
 
         with SyncCrazyflie(self.URI, cf=cf) as scf:
             with MotionCommander(scf,0.8) as motion_commander:
                 with MultiRanger(scf) as multi_ranger:
                     with Stabilization(scf) as stabilization:
                         with SyncLogger(scf, lg_states) as logger_states:
-                            bug_controller = ComController()
+                            bug_controller = ComAngleLoopController()
                             bug_controller.init(0.7,0.5)
 
 
@@ -150,13 +168,15 @@ class WF_crazyflie:
                             kalman_x = 0.0
                             kalman_y = 0.0
                             already_reached_far_enough = False
-                            distance_to_goal = 0.0
-                            state = "STATE_MACHINE"
+                            state = "TURN_TO_GOAL"
                             prev_heading = stabilization.heading
                             angle_outbound = stabilization.heading;
                             state_start_time =0
                             rssi = 0
                             distance = 0
+                            first_run = True
+                            x_0 = 0
+                            y_0 = 0
                             while keep_flying:
 
                                 # crazyflie related stuff
@@ -166,62 +186,64 @@ class WF_crazyflie:
                                     heading = math.radians(float(data["stabilizer.yaw"]));
                                     pos_x =-1*float(data["rssiCR.pos_x"])#float(data["kalman_states.ox"])-0.5
                                     pos_y =-1*float(data["rssiCR.pos_y"])#float(data["kalman_states.oy"])-1.5
-                                    kalman_x = float(data["kalman_states.ox"])-0.5
-                                    kalman_y = float(data["kalman_states.oy"])-1.5
+                                    kalman_x = float(data["kalman_states.ox"])
+                                    kalman_y = float(data["kalman_states.oy"])
                                     rssi = float(data["rssiCR.rssi"])
                                     distance = float(data["rssiCR.distance"])
+                                    
+                                    if first_run is True:
+                                        x_0 = kalman_x
+                                        y_0 = kalman_y
+                                        first_run = False
+                                        
                                     if pos_x == 0:
                                         pos_x = 0.02
                                     if pos_y == 0:
                                         pos_y = 0.02
-                                    if already_reached_far_enough:
-                                        distance_to_goal = math.sqrt(math.pow(kalman_x,2) + math.pow(kalman_y,2))
-                                        angle_to_goal = wraptopi(np.pi+math.atan(pos_y/pos_x))
-                                        #angle_to_goal = wraptopi(np.pi+math.atan(kalman_y/kalman_x))
-                                    else:
-                                        distance_to_goal = math.sqrt(math.pow(kalman_x- DISTANCE_TO_TRAVEL,2) + math.pow(kalman_y,2))
-                                        angle_to_goal = wraptopi(math.atan(pos_y/pos_x))
-                                        #angle_to_goal = wraptopi(math.atan(kalman_y/kalman_x))
+                                        
+                                        
+                                    rel_coord_x = self.goal_coord_x[self.coord_index]-(kalman_x-x_0);
+                                    rel_coord_y = self.goal_coord_y[self.coord_index]-(kalman_y-y_0);
+                            
+                                    self.distance_to_goal = math.sqrt(math.pow(rel_coord_x,2)+math.pow(rel_coord_y,2))
+                                    self.angle_to_goal = wraptopi(np.arctan2(rel_coord_y,rel_coord_x))
 
                                     break
 
-                                if already_reached_far_enough:
-                                    angle_goal = angle_to_goal
-                                else:
-                                    angle_goal = angle_outbound - 0.6
 
                                 time.sleep(0.1)
-                                print("stabilization",stabilization.heading)
-
+                                
+                                #Handle state transitions
                                 if state =="STATE_MACHINE":
-                                    print(distance_to_goal)
-                                    print(already_reached_far_enough)
-                                    if distance_to_goal<1.5  and already_reached_far_enough is False:
-                                        state = self.transition("TURN_180")
-                                        already_reached_far_enough = True
-                                        distance_to_goal = 10
-                                    if distance_to_goal<1.0  and already_reached_far_enough is True:
-                                        keep_flying = False
-
-                                if state =="TURN_180":
-                                    if time.time()-self.state_start_time > 1 and logicIsCloseTo(stabilization.heading,wraptopi(angle_goal),0.1):
+                                    if self.distance_to_goal<1.0   and self.coord_index is not len(self.goal_coord_x)-1:
+                                        state = self.transition("TURN_TO_GOAL")
+                                        self.coord_index = self.coord_index + 1
+                                        self.distance_to_goal = 10
+                                        self.angle_to_goal = 10
+                                    if self.distance_to_goal<1.0  and self.coord_index is len(self.goal_coord_x)-1:
+                                        state = self.transition("STOP")
+                                if state =="TURN_TO_GOAL":
+                                    if time.time()-self.state_start_time > 1 and logicIsCloseTo(stabilization.heading,wraptopi(self.angle_to_goal),0.1):
                                         state = self.transition("STATE_MACHINE")
 
-
+                                #Handle state actions
                                 if state=="STATE_MACHINE":
-                                    twist = bug_controller.stateMachine(multi_ranger.front,multi_ranger.right,stabilization.heading,wraptopi(angle_goal),distance_to_goal)
-                                if state =="TURN_180":
+                                    twist = bug_controller.stateMachine(multi_ranger.front,multi_ranger.right,multi_ranger.left,stabilization.heading,wraptopi(self.angle_to_goal),self.distance_to_goal)
+                                if state =="TURN_TO_GOAL":
                                     twist.linear.x = 0.0;
                                     twist.linear.y = 0.0;
                                     twist.angular.z = 0.6;
-
-                                    #OPTITRACK STUFF
+                                if state =="STOP":
+                                    twist.linear.x = 0.0;
+                                    twist.linear.y = 0.0;
+                                    twist.angular.z = 0.0;
+                                    keep_flying = False
                                 if len(pos)>0:
-                                    fh.write("%f, %f,  %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n"% (twist.linear.x, -1*math.degrees(twist.angular.z), distance_to_goal,angle_to_goal, stabilization.heading, kalman_x, kalman_y, pos_x, pos_y,pos[0],pos[2],rssi,distance))
+                                    fh.write("%f, %f,  %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n"% (twist.linear.x, -1*math.degrees(twist.angular.z), self.distance_to_goal,self.angle_to_goal, stabilization.heading, kalman_x, kalman_y, pos_x, pos_y,pos[0],pos[2],rssi,distance))
                                 else:
-                                    fh.write("%f, %f,  %f, %f, %f, %f, %f, %f, %f, 0, 0, %f, %f\n"% (twist.linear.x, -1*math.degrees(twist.angular.z), distance_to_goal,angle_to_goal, stabilization.heading, kalman_x, kalman_y, pos_x, pos_y,rssi,distance))
+                                    fh.write("%f, %f,  %f, %f, %f, %f, %f, %f, %f, 0, 0, %f, %f\n"% (twist.linear.x, -1*math.degrees(twist.angular.z), self.distance_to_goal,self.angle_to_goal, stabilization.heading, kalman_x, kalman_y, pos_x, pos_y,rssi,distance))
 
-
+                                print(state)
                                 motion_commander._set_vel_setpoint(twist.linear.x,twist.linear.y,0,-1*math.degrees(twist.angular.z))
 
                                 if multi_ranger.up is not None :

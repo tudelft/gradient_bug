@@ -26,7 +26,7 @@ def wraptopi(number):
     return  ( number + np.pi) % (2 * np.pi ) - np.pi
 
 
-class ComAngleController:
+class ComAngleLoopController:
     wall_follower = WallFollower()
     ref_distance_from_wall = 1.0
     max_speed = 0.2
@@ -46,11 +46,17 @@ class ComAngleController:
     scan_obstacle_array = []
     scan_angle_array = []
     wall_angle = 0
+    first_run = True
+    prev_distance = 1000.0
+    already_reversed_direction=False
+    state_WF =  ""
+    direction = 1
 
     def init(self,new_ref_distance_from_wall,max_speed_ref = 0.2):
         self.ref_distance_from_wall = new_ref_distance_from_wall
         self.state = "FORWARD"
         self.max_speed = max_speed_ref
+        self.first_run = True
 
     def take_off(self):
         twist = Twist()
@@ -73,6 +79,14 @@ class ComAngleController:
     def twistTurn(self, rate):
         v = 0
         w = rate
+        twist = Twist()
+        twist.linear.x = v
+        twist.angular.z = w
+        return twist
+    
+    def twistTurnCircle(self, radius):
+        v = self.max_speed
+        w = self.direction*(-v/radius)
         twist = Twist()
         twist.linear.x = v
         twist.angular.z = w
@@ -142,7 +156,12 @@ class ComAngleController:
             left_range = inf
 
         self.heading = current_heading;
-
+        
+        if self.first_run is True:
+            self.prev_distance = distance_goal;
+            self.first_run = False
+        print("direction ", self.direction)
+        print("ranges ", left_range, right_range, front_range)
         # Handle State transition
         if self.state == "FORWARD":
             if front_range < self.ref_distance_from_wall+0.2:
@@ -154,6 +173,7 @@ class ComAngleController:
                 self.scan_obstacle_array = []
                 self.scan_angle_array = []
                 self.direction = 1
+                self.already_reversed_direction = False
                 
         if self.state == "HOVER":
             if   time.time()-self.state_start_time>1:
@@ -162,13 +182,22 @@ class ComAngleController:
             if self.scan_obstacle_done is True:
                 self.wall_angle=self.calculateWallRANSAC(self.scan_obstacle_array,self.scan_angle_array,0.52)
                 self.state = "WALL_FOLLOWING"
-    
+        if self.state =="REVERSE_DIRECTION":
+            if front_range < self.ref_distance_from_wall+0.2:
+                self.state = self.transition("WALL_FOLLOWING")
+                if self.direction == -1:
+                    self.wall_angle = -1
+                elif self.direction == 1:
+                    self.wall_angle = 1
         elif self.state == "WALL_FOLLOWING":
             #print(self.heading,self.heading_prev,wraptopi(self.heading-self.heading_prev),angle_goal)
-            if self.logicIsCloseTo(current_heading,wraptopi(angle_goal),0.05) and  front_range > 1.4 :
+            if self.logicIsCloseTo(current_heading,wraptopi(angle_goal),0.05) and  front_range > 1.4 and self.state_WF is "ROTATE_AROUND_WALL":
 
             #if self.heading < self.heading_prev and front_range > 1.2:
                 self.state = "FORWARD"
+            if self.prev_distance<distance_goal and self.already_reversed_direction is False:
+                self.state = self.transition("REVERSE_DIRECTION")
+                self.already_reversed_direction = True
 
 
         # Handle actions
@@ -192,17 +221,15 @@ class ComAngleController:
                 twist=self.twistTurn(0.5)
                 if self.logicIsCloseTo(wraptopi(self.heading_prev + scan_angle),current_heading,0.1):
                     self.scan_obstacle_done = True
-
-
-
-                
-                
-
+        if self.state =="REVERSE_DIRECTION":
+            twist = self.twistTurn(self.direction*-0.5)
         elif self.state == "WALL_FOLLOWING":
             if self.wall_angle <= 0:
-                twist = self.wall_follower.wall_follower(front_range,right_range, current_heading,1)
+                self.direction = 1
+                twist, self.state_WF = self.wall_follower.wall_follower(front_range,right_range, current_heading,self.direction)
             else:
-                twist = self.wall_follower.wall_follower(front_range,left_range, current_heading,-1)
+                self.direction = -1
+                twist, self.state_WF = self.wall_follower.wall_follower(front_range,left_range, current_heading,self.direction)
 
         print(self.state)
 
