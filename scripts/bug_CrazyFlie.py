@@ -88,17 +88,17 @@ class WF_crazyflie:
     #Crazyflie 1
     #URI = 'radio://0/40/250K/E7E7E7E7EA'
     #Crazyflie 2
-    #URI = 'radio://0/60/250K/E7E7E7E7EB'
+    URI = 'radio://0/60/250K/E7E7E7E7EB'
     #Crazyflie 3
     #URI = 'radio://0/80/250K/E7E7E7E7E7'
-    #Crazyflie 3
-    URI = 'radio://0/50/250K/E7E7E7E7EC'
+    #Crazyflie 4
+    #URI = 'radio://0/50/250K/E7E7E7E7EC'
 
     angle_to_goal = 0.0
     distance_to_goal = 0.0
     
-    goal_coord_x = [8, 0]
-    goal_coord_y = [0, 0]
+    goal_coord_x = [4, 0]
+    goal_coord_y = [-2, 0]
     
     coord_index = 0
 

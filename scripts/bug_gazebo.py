@@ -47,8 +47,8 @@ class bug_gazebo:
     angle_outbound = 0.0
     state_start_time = 0.0
     
-    goal_coord_x = [8, 0]
-    goal_coord_y = [2, 0]
+    goal_coord_x = [4, 0]
+    goal_coord_y = [-2, 0]
     
     coord_index = 0
 
@@ -83,7 +83,13 @@ class bug_gazebo:
     def leftRangeCB(self,range):
         self.left_range = range.ranges[0]
 
-
+    def noisyTwist(self, twist, std):
+        noisy_twist = Twist()
+        noisy_twist.linear.x =np.random.normal(twist.linear.x,std,1);
+        noisy_twist.linear.y = np.random.normal(twist.linear.y,std,1);
+        noisy_twist.angular.z = np.random.normal(twist.angular.z,std,1);
+        noisy_twist.linear.z= twist.linear.z;
+        return noisy_twist
             # Transition state and restart the timer
     def transition(self, newState):
         state = newState
@@ -104,6 +110,8 @@ class bug_gazebo:
         rospy.wait_for_service('enable_motors')
         enable_motors  = rospy.ServiceProxy('enable_motors', EnableMotors)
         enable_motors(True)
+        
+    
 
     def rosloop(self):
         bug_controller = ComAngleLoopController()
@@ -157,8 +165,10 @@ class bug_gazebo:
                 twist.angular.z = 0.0;
             enable_motors  = rospy.ServiceProxy('enable_motors', EnableMotors)
             enable_motors(True)
+            
+            
             print self.state
-            pub.publish(twist)
+            pub.publish(self.noisyTwist(twist,0.1))
             rate.sleep()
 
 
