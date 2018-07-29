@@ -116,7 +116,7 @@ class WallFollower:
         self.state_start_time = time.time()
         return state
 
-    def wall_follower(self, front_range, side_range, current_heading, direction_turn):
+    def wall_follower(self, front_range, side_range, current_heading, direction_turn=1):
 
 
         self.direction = direction_turn
@@ -195,19 +195,21 @@ class WallFollower:
                     print("twistTurnandAdjust")
                # twist = self.twistTurnandAdjust(self.max_rate,side_range)
                     print("headin diff", wraptopi(abs(current_heading - self.previous_heading)))
-                    if wraptopi(abs(current_heading - self.previous_heading)) > 0.2:
+                    if wraptopi(abs(current_heading - self.previous_heading)) > 0.3:
                         self.around_corner_go_back = True
                     if  self.around_corner_go_back:
-                        twist = self.twistTurnandAdjust(-1*self.max_rate,side_range)
+                        twist = self.twistTurnandAdjust(self.max_rate,side_range)
                         print("go back")
                     else:
-                        twist = self.twistTurnandAdjust(self.max_rate,side_range)
+                        twist = self.twistTurnandAdjust(-1*self.max_rate,side_range)
                         print("forward")
                 else:
                     print("twistTurnAroundCorner")
                     self.previous_heading = current_heading;
                     twist = self.twistTurnAroundCorner(self.ref_distance_from_wall)
                     self.previous_heading = current_heading
+                    self.around_corner_go_back = False
+
         elif self.state == "ROTATE_IN_CORNER":
             twist = self.twistTurn(self.max_rate);
 

@@ -88,17 +88,17 @@ class WF_crazyflie:
     #Crazyflie 1
     #URI = 'radio://0/40/250K/E7E7E7E7EA'
     #Crazyflie 2
-    URI = 'radio://0/60/250K/E7E7E7E7EB'
+    #URI = 'radio://0/60/250K/E7E7E7E7EB'
     #Crazyflie 3
     #URI = 'radio://0/80/250K/E7E7E7E7E7'
     #Crazyflie 4
-    #URI = 'radio://0/50/250K/E7E7E7E7EC'
+    URI = 'radio://0/50/250K/E7E7E7E7EC'
 
     angle_to_goal = 0.0
     distance_to_goal = 0.0
     
-    goal_coord_x = [4, 0]
-    goal_coord_y = [-2, 0]
+    goal_coord_x = [10, 0]
+    goal_coord_y = [1, 0]
     
     coord_index = 0
 
@@ -148,7 +148,7 @@ class WF_crazyflie:
                 with MultiRanger(scf) as multi_ranger:
                     with Stabilization(scf) as stabilization:
                         with SyncLogger(scf, lg_states) as logger_states:
-                            bug_controller = ComAngleLoopController()
+                            bug_controller = WallFollowerController()
                             bug_controller.init(0.7,0.5)
 
 

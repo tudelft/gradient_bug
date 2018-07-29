@@ -32,8 +32,10 @@ class WallFollowerController:
     calculate_angle_first_time = True;
     around_corner_first_turn = True;
 
-    def init(self,new_ref_distance_from_wall):
+    def init(self,new_ref_distance_from_wall,max_speed_ref = 0.2):
         self.ref_distance_from_wall = new_ref_distance_from_wall
+        self.max_speed = max_speed_ref
+
         self.state = "FORWARD"
 
     def take_off(self):
@@ -71,7 +73,7 @@ class WallFollowerController:
         self.state_start_time = time.time()
         return state
 
-    def stateMachine(self, front_range, right_range, current_heading):
+    def stateMachine(self, front_range, right_range, left_range, current_heading, angle_goal, distance_goal):
 
         twist = Twist()
 
@@ -83,14 +85,14 @@ class WallFollowerController:
 
         # Handle State transition
         if self.state == "FORWARD":
-            if front_range < 1.0:#self.ref_distance_from_wall:
+            if front_range < self.ref_distance_from_wall+0.2:
                 self.state = self.transition("WALL_FOLLOWING")
-                self.wall_follower.init(self.ref_distance_from_wall)
+                self.wall_follower.init(self.ref_distance_from_wall,self.max_speed)
         # Handle actions
         if self.state == "FORWARD":
             twist=self.twistForward()
         elif self.state == "WALL_FOLLOWING":
-            twist = self.wall_follower.wall_follower(front_range,right_range, current_heading)
+            twist, state_WF = self.wall_follower.wall_follower(front_range,right_range, current_heading, 1)
 
         print(self.state)
 

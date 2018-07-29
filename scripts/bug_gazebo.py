@@ -47,8 +47,8 @@ class bug_gazebo:
     angle_outbound = 0.0
     state_start_time = 0.0
     
-    goal_coord_x = [4, 0]
-    goal_coord_y = [-2, 0]
+    goal_coord_x = [10, 0]
+    goal_coord_y = [1, 0]
     
     coord_index = 0
 
@@ -114,7 +114,7 @@ class bug_gazebo:
     
 
     def rosloop(self):
-        bug_controller = ComAngleLoopController()
+        bug_controller = WallFollowerController()
 
         bug_controller.init(1.0,0.5)
         twist = Twist()
