@@ -8,20 +8,27 @@
 
 
 #include "ros/ros.h"
+#include "ros/time.h"
+
+
 #include "std_msgs/String.h"
 #include "sensor_msgs/LaserScan.h"
+#include "sensor_msgs/Range.h"
+#include "hector_uav_msgs/EnableMotors.h"
+#include "geometry_msgs/Twist.h"
 
 #include <sstream>
 
-		extern "C" {
+extern "C" {
 
 #include "wallfollowing_multiranger_onboard.h"
-		}
+}
 
 // laser range callback
 float front_range;
 float right_range;
 float left_range;
+float height;
 
 void frontRangeCB(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
@@ -38,6 +45,10 @@ void leftRangeCB(const sensor_msgs::LaserScan::ConstPtr& msg)
 	left_range = msg->ranges[0];
 }
 
+void sonarHeightCB(const sensor_msgs::Range::ConstPtr& msg)
+{
+	height = msg->range;
+}
 
 
 int main(int argc, char **argv)
@@ -53,15 +64,56 @@ int main(int argc, char **argv)
 	ros::Subscriber sub_frontrange = n.subscribe("/multi_ranger/front_range_sensor_value", 1000, frontRangeCB);
 	ros::Subscriber sub_rightrange = n.subscribe("/multi_ranger/right_range_sensor_value", 1000, rightRangeCB);
 	ros::Subscriber sub_leftrange = n.subscribe("/multi_ranger/left_range_sensor_value", 1000, leftRangeCB);
+	ros::Subscriber sub_sonarheight = n.subscribe("/sonar_height", 1000, sonarHeightCB);
+
+
+	// Publish to gazebo controller
+	ros::Publisher pub_cmdvel = n.advertise<geometry_msgs::Twist>("cmd_vel", 1000);
+
+	//sensor_msgs::LaserScan::ConstPtr msg = ros::topic::waitForMessage<sensor_msgs::LaserScan>("/multi_ranger/front_range_sensor_value");
+
+	ros::Duration(2).sleep();
+	ros::service::waitForService("enable_motors", -1);
+	ros::ServiceClient client = n.serviceClient<hector_uav_msgs::EnableMotors>("enable_motors");
+	hector_uav_msgs::EnableMotors srv;
+	srv.request.enable = true;
+	client.call(srv);
+	// Init wall follower
+	wall_follower_init(1.0, 0.5);
+
+	bool taken_off = false;
+	geometry_msgs::Twist twist_msg;
 
 
 	while (ros::ok())
 	{
-		testRange(front_range, right_range, left_range);
 
-	    // Spine once and sleep to keep loop at same rate
-	    ros::spinOnce();
-	    loop_rate.sleep();
+		if(taken_off == false )
+		{
+			twist_msg.linear.x = 0;
+			twist_msg.linear.y = 0;
+			twist_msg.linear.z = 0.5;
+			if(height > 1.0)
+			{
+				taken_off = true;
+			}
+		}else{
+			//testRange(front_range, right_range, left_range);
+			float vel_x;
+			float vel_y;
+			wall_follower(&vel_x, &vel_y, front_range,  right_range, 0,  1);
+
+			twist_msg.linear.x = vel_x;
+			twist_msg.linear.y = vel_y;
+			twist_msg.linear.z = 0.0;
+		}
+
+
+		pub_cmdvel.publish(twist_msg);
+
+		// Spine once and sleep to keep loop at same rate
+		ros::spinOnce();
+		loop_rate.sleep();
 
 	}
 
