@@ -9,11 +9,8 @@
   <!-- Spawn simulated quadrotor uav -->
   <include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" >
     <arg name="model" value="$(find hector_quadrotor_description)/urdf/quadrotor_with_multiranger.gazebo.xacro"/>
-    <!--arg name="controllers" value="
-        controller/attitude
-        controller/velocity
-        controller/position
-        "/-->
+    <arg name="x" value="0"/>
+    <arg name="tf_prefix" value="check"/>
   </include>
 
   <!--include file="$(find hector_quadrotor_teleop)/launch/xbox_controller.launch" >
