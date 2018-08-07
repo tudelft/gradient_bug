@@ -12,9 +12,11 @@ set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
+  tf
   std_msgs
   geometry_msgs
   sensor_msgs
+  hector_uav_msgs
 )
 
 ## System dependencies are found with CMake's conventions
