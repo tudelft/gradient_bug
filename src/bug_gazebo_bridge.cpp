@@ -23,7 +23,7 @@
 
 extern "C" {
 
-#include "wallfollowing_multiranger_onboard.h"
+#include "../lib/wallfollowing_multiranger_onboard.h"
 }
 
 // laser range callback

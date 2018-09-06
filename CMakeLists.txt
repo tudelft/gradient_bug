@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(multirange_wall_following)
+project(gradient_bug)
 
 set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
 
@@ -124,15 +124,15 @@ catkin_package(
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
-/home/knmcguire/Software/crazyflie/crazyflie-firmware/src/lib/wallfollowing_multiranger_onboard/
+lib/wallfollowing_multiranger_onboard/
 )
-add_library(wallfollowing_multiranger_onboard /home/knmcguire/Software/crazyflie/crazyflie-firmware/src/lib/wallfollowing_multiranger_onboard/wallfollowing_multiranger_onboard.c )
+add_library(wallfollowing_onboard lib/wallfollowing_multiranger_onboard.c )
 
-add_executable(bug_gazebo_onboard_prep src/bug_gazebo_onboard_prep.cpp)
+add_executable(bug_gazebo_bridge src/bug_gazebo_bridge.cpp)
 
-target_link_libraries(bug_gazebo_onboard_prep ${catkin_LIBRARIES} wallfollowing_multiranger_onboard)
+target_link_libraries(bug_gazebo_bridge ${catkin_LIBRARIES} wallfollowing_onboard)
 
-add_dependencies(bug_gazebo_onboard_prep ${catkin_EXPORTED_TARGETS})
+add_dependencies(bug_gazebo_bridge ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}

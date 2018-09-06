@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+
+<launch> 
+  <!-- Launch controller-->
+  <node pkg="gradient_bug" type="bug_gazebo.py" name="bug_gazebo" output="screen"/>
+  <!-- Start Gazebo with wg world running in (max) realtime -->
+  <arg name="world" default="$(find gradient_bug)/world/Lblocks.world"/>
+  <arg name="gui" default="true"/>
+  <arg name="args" default=""/>
+  
+  <param name="/use_sim_time" value="true" />
+
+  <node name="gazebo" pkg="gazebo_ros" type="gzserver" args="$(arg world) $(arg args)" respawn="false" output="screen"/>
+  
+    <!-- start gui -->
+  <group if="$(arg gui)">
+    <node name="gazebo_gui" pkg="gazebo_ros" type="gzclient" respawn="false" output="screen"/>
+  </group>
+
+
+  <!-- Spawn simulated quadrotor uav -->
+  <include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" >
+    <arg name="model" value="$(find hector_quadrotor_description)/urdf/quadrotor_with_multiranger.gazebo.xacro"/>
+    <arg name="x" value="0"/>
+    <arg name="tf_prefix" value="check"/>
+  </include>
+
+  <!--include file="$(find hector_quadrotor_teleop)/launch/xbox_controller.launch" >
+    <arg name="control_mode" value="position"/>
+  </include-->
+
+</launch>
