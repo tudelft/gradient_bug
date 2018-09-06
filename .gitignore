@@ -3,3 +3,5 @@
 .project
 .pydevproject
 scripts/cache/*
+*/log_test.txt
+

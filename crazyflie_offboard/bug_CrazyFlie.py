@@ -5,7 +5,7 @@ import rospy
 from std_msgs.msg import String
 '''
 
-
+from __future__ import absolute_import
 from geometry_msgs.msg import Twist
 '''
 
@@ -33,6 +33,10 @@ from cflib.utils.stabilization import Stabilization
 from cflib.crazyflie.syncLogger import SyncLogger
 
 from cflib.crazyflie.log import LogConfig
+
+
+
+sys.path.append('/home/knmcguire/Software/catkin_ws/src/gradient_bug/scripts')
 
 from wall_following_controller import WallFollowerController
 from com_controller import ComController

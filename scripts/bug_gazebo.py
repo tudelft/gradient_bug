@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # license removed for brevity
 import rospy
+import sys
 from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 from gazebo_msgs.msg import ModelStates
@@ -8,6 +9,9 @@ from hector_uav_msgs.srv import EnableMotors
 from sensor_msgs.msg import LaserScan
 from sensor_msgs.msg import Imu
 #from wall_follower_multi_ranger import WallFollower
+
+sys.path.append('/home/knmcguire/Software/catkin_ws/src/gradient_bug/scripts/bug_algorithms')
+
 from wall_following_controller import WallFollowerController
 from com_controller import ComController
 from com_angle_controller import ComAngleController
