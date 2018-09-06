@@ -3,7 +3,7 @@
 <launch> 
   <!-- Launch controller-->
   <!--node pkg="multirange_wall_following" type="bug_gazebo.py" name="wall_follower_multi_ranger" output="screen"-->
-  <node pkg="multirange_wall_following" type="bug_gazebo_onboard_prep" name="bug_gazebo_onboard_prep" output="screen">
+  <node pkg="gradient_bug" type="bug_gazebo_bridge" name="bug_gazebo_bridge" output="screen">
   </node>
   <!-- Start Gazebo with wg world running in (max) realtime -->
   <include file="start.launch"/>
