@@ -17,13 +17,32 @@
     <node name="gazebo_gui" pkg="gazebo_ros" type="gzclient" respawn="false" output="screen"/>
   </group>
 
+<node pkg="indoor_environment_generator" type="indoor_environment_generator_node" name="indoor_environment_generator_node" output="screen"/>
+
 
   <!-- Spawn simulated quadrotor uav -->
+<group ns="UAV1">
   <include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" >
     <arg name="model" value="$(find hector_quadrotor_description)/urdf/quadrotor_with_multiranger.gazebo.xacro"/>
     <arg name="x" value="0"/>
-    <arg name="tf_prefix" value="check"/>
+    <arg name="y" value="0"/>
+    <arg name="tf_prefix" value="UAV1"/>
+       <arg name="name" value="UAV1" />
+
   </include>
+   <node pkg="gradient_bug" type="bug_gazebo.py" name="bug_gazebo" output="screen"/>
+</group>
+
+<group ns="UAV2">
+  <include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" >
+    <arg name="model" value="$(find hector_quadrotor_description)/urdf/quadrotor_with_multiranger.gazebo.xacro"/>
+    <arg name="x" value="-4"/>
+    <arg name="y" value="0"/>
+    <arg name="tf_prefix" value="UAV2"/>
+       <arg name="name" value="UAV2" />
+  </include>
+   <node pkg="gradient_bug" type="bug_gazebo.py" name="bug_gazebo" output="screen"/>
+</group>
 
   <!--include file="$(find hector_quadrotor_teleop)/launch/xbox_controller.launch" >
     <arg name="control_mode" value="position"/>
