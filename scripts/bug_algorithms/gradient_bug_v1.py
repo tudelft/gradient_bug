@@ -179,27 +179,34 @@ class GradientBugController:
             self.first_run = False
         print("direction ", self.direction)
         print("ranges ", left_range, right_range, front_range)
+        
+        
         # Handle State transition
         if self.state == "FORWARD":
             if front_range < self.ref_distance_from_wall+0.2:
-                self.state = self.transition("HOVER")
+                self.state = self.transition("WALL_FOLLOWING")
                 self.wall_follower.init(self.ref_distance_from_wall,self.max_speed)
                 self.heading_prev = self.heading
-                self.first_scan = True
-                self.scan_obstacle_done = False
-                self.scan_obstacle_array = []
-                self.scan_angle_array = []
-                self.direction = 1
+                #self.first_scan = True
+                #self.scan_obstacle_done = False
+                #self.scan_obstacle_array = []
+                #self.scan_angle_array = []
                 self.already_reversed_direction = False
-         #   if right_range < self.ref_distance_from_wall+0.2:
-         #       self.state = "SIDE_CLOSE_TO_WALL"
-          #      self.direction = 1
-         #       self.previous_heading = current_heading
-          #  if left_range < self.ref_distance_from_wall+0.2:
-         #       self.direction = -1
-         #       self.state = "SIDE_CLOSE_TO_WALL"
-         #       self.previous_heading = current_heading
-                
+                if left_range<right_range and left_range < 2.0:
+                    self.direction = -1
+                if left_range>right_range and right_range < 2.0:
+                    self.direction = 1
+                if left_range>2.0 and right_range>2.0:
+                    self.direction = 1
+            '''
+            if right_range < self.ref_distance_from_wall+0.2:
+                self.direction = 1
+                self.state = self.transition("WALL_FOLLOWING")
+                self.wall_follower.init(self.ref_distance_from_wall,self.max_speed)
+                self.heading_prev = self.heading
+                            '''
+
+
         if self.state == "HOVER":
             if   time.time()-self.state_start_time>1:
                 self.state = self.transition("SCAN_OBSTACLE")
@@ -216,34 +223,21 @@ class GradientBugController:
                     self.wall_angle = 1
         elif self.state == "WALL_FOLLOWING":
             if self.state_WF is "ROTATE_AROUND_WALL":
-                if front_range>2.0 and ((bearing>0 and bearing<0.2 and self.direction is 1) or\
-              (bearing<0 and bearing > -0.2 and self.direction is -1)):
+                if front_range>2.0 and (bearing>-0.2 and bearing < 0.2):
                     self.state = self.transition("ROTATE_TO_GOAL")
 
-                
-            #print(self.heading,self.heading_prev,wraptopi(self.heading-self.heading_prev),angle_goal)
-            #if self.logicIsCloseTo(current_heading,wraptopi(angle_goal),0.05) and  front_range > 1.4 and self.state_WF is "ROTATE_AROUND_WALL":
-               # self.state = self.transition("REVERSE_DIRECTION")
-            #if self.heading < self.heading_prev and front_range > 1.2:
-              #  self.state = "FORWARD"
             if self.prev_distance<distance_goal and self.already_reversed_direction is False:
                 self.state = self.transition("REVERSE_DIRECTION")
                 self.already_reversed_direction = True
-       # elif self.state=="SIDE_CLOSE_TO_WALL":
-        #    if front_range < self.ref_distance_from_wall+0.2:
-        #        self.state = self.transition("HOVER")
-        #    if self.direction is -1 and right_range>self.ref_distance_from_wall+0.2:
-         #       self.state = "FORWARD"
-        #    if self.direction is 1 and left_range>self.ref_distance_from_wall+0.2:
-        #        self.state = "FORWARD"
+
         elif self.state=="ROTATE_TO_GOAL":
-            if self.logicIsCloseTo(current_heading,wraptopi(angle_goal),0.1):
+            print("rotoate to goal", current_heading, angle_goal)
+            if self.logicIsCloseTo(current_heading,wraptopi(angle_goal),0.05):
                 self.state = "FORWARD"
 
         
         print("angle_goal",angle_goal)
         print("angle_bearing", bearing)
-
 
 
         # Handle actions
@@ -274,19 +268,17 @@ class GradientBugController:
         if self.state =="REVERSE_DIRECTION":
             twist = self.twistTurn(self.direction*-0.5)
         elif self.state == "WALL_FOLLOWING":
-            if self.wall_angle <= 0:
-                self.direction = 1
+            #if self.wall_angle <= 0:
+            if self.direction is 1:
                 twist, self.state_WF = self.wall_follower.wall_follower(front_range,right_range, current_heading,self.direction)
             else:
-                self.direction = -1
+                #self.direction = -1
                 twist, self.state_WF = self.wall_follower.wall_follower(front_range,left_range, current_heading,self.direction)
-        elif self.state=="SIDE_CLOSE_TO_WALL":
-            if self.direction == 1:
-                twist = self.twistForwardAlongWall(right_range)
-            else:
-                twist = self.twistForwardAlongWall(left_range)
         elif self.state=="ROTATE_TO_GOAL":
-            twist = self.twistTurn(-1*self.direction*self.max_rate)
+            if bearing<0:
+                twist = self.twistTurn(self.max_rate)
+            else:
+                twist = self.twistTurn(-1*self.max_rate)
 
         print(self.state)
 

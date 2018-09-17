@@ -92,9 +92,9 @@ class WallFollower:
         twist.angular.z = w
         return twist
 
-    def twistTurnAroundCorner(self, radius):
+    def twistTurnAroundCorner(self, radius,bias):
         v = self.max_speed
-        w = self.direction*(-v/radius)
+        w = self.direction*(-v/radius)+bias
         twist = Twist()
         twist.linear.x = v
         twist.angular.z = w
@@ -134,12 +134,14 @@ class WallFollower:
                 self.previous_heading = current_heading;
                 self.angle = self.direction*( 1.57 - math.atan(front_range/side_range))
                 self.state = self.transition("TURN_TO_ALLIGN_TO_WALL")
+                print("got angle ", self.angle)
             if (side_range < 1.0 and front_range > 2.0):
                 self.around_corner_first_turn = True
                 self.around_corner_go_back = False
                 self.previous_heading = current_heading;
                 self.state = self.transition("ROTATE_AROUND_WALL")
         elif self.state =="TURN_TO_ALLIGN_TO_WALL":
+            print(current_heading)
             print(wraptopi(current_heading-self.previous_heading),self.angle)
             if self.logicIsCloseTo(wraptopi(current_heading-self.previous_heading),self.angle, 0.1):
                 self.state = self.transition("FORWARD_ALONG_WALL")
@@ -190,10 +192,9 @@ class WallFollower:
                     self.around_corner_first_turn = False
                     self.previous_heading = current_heading;
             else:
-                if side_range>self.ref_distance_from_wall+0.5:
+                if side_range>self.ref_distance_from_wall+0.2:
                     print("twistTurnandAdjust")
                # twist = self.twistTurnandAdjust(self.max_rate,side_range)
-                    print("headin diff", wraptopi(abs(current_heading - self.previous_heading)))
                     if wraptopi(abs(current_heading - self.previous_heading)) > 0.3:
                         self.around_corner_go_back = True
                     if  self.around_corner_go_back:
@@ -205,7 +206,10 @@ class WallFollower:
                 else:
                     print("twistTurnAroundCorner")
                     self.previous_heading = current_heading;
-                    twist = self.twistTurnAroundCorner(self.ref_distance_from_wall)
+                    if  self.around_corner_go_back:
+                        twist = self.twistTurnAroundCorner(self.ref_distance_from_wall+0.2,0.05)
+                    else:
+                        twist = self.twistTurnAroundCorner(self.ref_distance_from_wall+0.2,-0.05)
                     self.previous_heading = current_heading
                     self.around_corner_go_back = False
 

@@ -102,7 +102,7 @@ class bug_gazebo:
         noisy_velocity_estimate_x = noisy_command.linear.x;
         noisy_velocity_estimate_y = noisy_command.linear.y;
 
-        self.current_heading_drift = self.current_heading_drift +diff_time*noisy_command.angular.z
+        self.current_heading_drift = wraptopi(self.current_heading_drift +diff_time*noisy_command.angular.z)
         self.odometry.pose.position.x = self.odometry.pose.position.x + diff_time*(noisy_velocity_estimate_x*math.cos(self.current_heading_drift) - noisy_velocity_estimate_y*math.sin(self.current_heading_drift))
         self.odometry.pose.position.y = self.odometry.pose.position.y + diff_time*(noisy_velocity_estimate_x*math.sin(self.current_heading_drift) + noisy_velocity_estimate_y*math.cos(self.current_heading_drift))
         
@@ -149,13 +149,13 @@ class bug_gazebo:
 
 
     def frontRangeCB(self,range):
-        self.front_range = range.ranges[0]
+        self.front_range = min(range.ranges)
 
     def rightRangeCB(self,range):
-        self.right_range = range.ranges[0]
+        self.right_range = min(range.ranges)
         
     def leftRangeCB(self,range):
-        self.left_range = range.ranges[0]
+        self.left_range = min(range.ranges)
         
     def clockCB(self,clock):
         
@@ -196,7 +196,8 @@ class bug_gazebo:
     
 
     def rosloop(self):
-        bug_controller = GradientBugController()
+        #bug_controller = GradientBugController()
+        bug_controller = WallFollowerController()
 
 
         self.distance_from_wall =0.7
@@ -206,17 +207,17 @@ class bug_gazebo:
         pub = rospy.Publisher('cmd_vel', Twist, queue_size=1)
 
         self.state = "TAKE_OFF"
-        rate = rospy.Rate(10) # 10hz
+        rate = rospy.Rate(30) # 10hz
 
         prev_heading = 0.0
         
-        rospy.wait_for_service('/indoor_gen')
-        indoor_gen = rospy.ServiceProxy('/indoor_gen',Trigger)
-        indoor_gen()
+        #rospy.wait_for_service('/indoor_gen')
+        #indoor_gen = rospy.ServiceProxy('/indoor_gen',Trigger)
+        #indoor_gen()
         
         
-        spawn_env = rospy.ServiceProxy('/spawn_generated_environment',Empty)
-        spawn_env()
+        #spawn_env = rospy.ServiceProxy('/spawn_generated_environment',Empty)
+        #spawn_env()
         
         
         
@@ -259,12 +260,17 @@ class bug_gazebo:
             if self.state =="TURN_TO_GOAL":
                 if time.time()-self.state_start_time > 1 and logicIsCloseTo(self.current_heading,wraptopi(self.angle_to_goal),0.1):
                     self.state = self.transition("STATE_MACHINE")
-                    
-                    
+            
+            
+            
+
             if self.state == "TAKE_OFF":
                 twist.linear.z = 0.1;
             if self.state =="STATE_MACHINE":
-                twist = bug_controller.stateMachine(self.front_range,self.right_range, self.left_range, self.current_heading_drift, wraptopi(self.angle_to_goal), self.distance_to_goal)
+
+                twist = bug_controller.stateMachine(self.front_range,self.right_range, self.left_range, self.current_heading, wraptopi(self.angle_to_goal), self.distance_to_goal)
+
+                
             if self.state =="TURN_TO_GOAL":
                 twist.linear.x = 0.0;
                 twist.linear.y = 0.0;
@@ -276,7 +282,7 @@ class bug_gazebo:
                 twist.angular.z = 0.0;
 
             
-            
+
             
 
             
@@ -284,14 +290,12 @@ class bug_gazebo:
             if self.first_run is False:
                 self.get_odometry_from_commands(twist)
                 
-                
-            
-               
-                
+
              
-                
-                
-                
+
+            
+                            
+            ''' 
             plt.plot(self.groundtruth_pose.pose.position.x,self.groundtruth_pose.pose.position.y, 'go')
             plt.hold(True)
 
@@ -299,6 +303,7 @@ class bug_gazebo:
 
             plt.hold(True)
             fig.canvas.draw()
+            ''' 
             #plt.show(block = False)
                 
             #print("heading", self.current_heading, self.current_heading_drift)
@@ -308,7 +313,9 @@ class bug_gazebo:
             
             print self.state
             pub.publish(noisy_twist)
+
             rate.sleep()
+            
 
             
 
