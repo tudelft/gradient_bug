@@ -130,7 +130,6 @@ class WallFollower:
         elif self.state == "HOVER":
             print(state)
         elif self.state == "TURN_TO_FIND_WALL":
-            print(front_range,side_range)
             if (side_range < self.ref_distance_from_wall/math.cos(0.78)+0.2 and front_range < self.ref_distance_from_wall/math.cos(0.78)+0.2):
                 self.previous_heading = current_heading;
                 self.angle = self.direction*( 1.57 - math.atan(front_range/side_range))

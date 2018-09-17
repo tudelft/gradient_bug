@@ -15,8 +15,12 @@ import math
 from _ast import IsNot
 from amcl.cfg.AMCLConfig import inf
 
+import numpy as np
 
 
+
+def wraptopi(number):
+    return  ( number + np.pi) % (2 * np.pi ) - np.pi
 
 class WallFollowerController:
     wall_follower = WallFollower()
