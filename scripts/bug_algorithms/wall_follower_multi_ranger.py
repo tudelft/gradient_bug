@@ -192,7 +192,7 @@ class WallFollower:
                     self.around_corner_first_turn = False
                     self.previous_heading = current_heading;
             else:
-                if side_range>self.ref_distance_from_wall+0.2:
+                if side_range>self.ref_distance_from_wall+0.5:
                     print("twistTurnandAdjust")
                # twist = self.twistTurnandAdjust(self.max_rate,side_range)
                     if wraptopi(abs(current_heading - self.previous_heading)) > 0.3:

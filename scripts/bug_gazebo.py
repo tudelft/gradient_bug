@@ -11,6 +11,8 @@ from sensor_msgs.msg import Imu
 from geometry_msgs.msg import PoseStamped
 from rosgraph_msgs.msg import Clock
 
+from std_msgs.msg import Float32
+
 
 import matplotlib.pyplot as plt
 
@@ -64,8 +66,8 @@ class bug_gazebo:
     angle_outbound = 0.0
     state_start_time = 0.0
     
-    goal_coord_x = [4, 0]
-    goal_coord_y = [4, 0]
+    goal_coord_x = [4]
+    goal_coord_y = [4]
     
     coord_index = 0
     
@@ -87,6 +89,8 @@ class bug_gazebo:
     gazebo_time = 0
     
     distance_from_wall = 0.5
+    
+    rssi_to_tower = 0
 
     
     def get_odometry_from_commands(self,noisy_command):
@@ -102,7 +106,8 @@ class bug_gazebo:
         noisy_velocity_estimate_x = noisy_command.linear.x;
         noisy_velocity_estimate_y = noisy_command.linear.y;
 
-        self.current_heading_drift = wraptopi(self.current_heading_drift +diff_time*noisy_command.angular.z)
+        self.current_heading_drift = wraptopi(self.current_heading_drift + diff_time*noisy_command.angular.z)
+       # self.current_heading_drift = self.current_heading+0.2
         self.odometry.pose.position.x = self.odometry.pose.position.x + diff_time*(noisy_velocity_estimate_x*math.cos(self.current_heading_drift) - noisy_velocity_estimate_y*math.sin(self.current_heading_drift))
         self.odometry.pose.position.y = self.odometry.pose.position.y + diff_time*(noisy_velocity_estimate_x*math.sin(self.current_heading_drift) + noisy_velocity_estimate_y*math.cos(self.current_heading_drift))
         
@@ -116,6 +121,14 @@ class bug_gazebo:
         self.angle_to_goal_drift = wraptopi(np.arctan2(rel_coord_y,rel_coord_x))
         
         return self.odometry
+    
+    
+    def adjusted_odometry(self,angle_adjusted,distance_goal):
+        odometry_adjusted = PoseStamped()
+        odometry_adjusted.pose.position.x = self.odometry.pose.position.x*math.cos(angle_adjusted)- self.odometry.pose.position.y*math.sin(angle_adjusted)
+        odometry_adjusted.pose.position.y = self.odometry.pose.position.x*math.sin(angle_adjusted)+ self.odometry.pose.position.y*math.cos(angle_adjusted)
+        return odometry_adjusted
+
 
 
     def poseCB(self,state):
@@ -146,6 +159,12 @@ class bug_gazebo:
 
         euler = tf.transformations.euler_from_quaternion(explicit_quat)
         self.current_heading = euler[2]
+        
+        
+    def towerRSSICB(self,data):
+        
+        self.rssi_to_tower = float(data.data)
+
 
 
     def frontRangeCB(self,range):
@@ -186,6 +205,8 @@ class bug_gazebo:
         
         
         rospy.Subscriber("/clock",Clock,self.clockCB)
+        
+        rospy.Subscriber("RSSI_to_tower",Float32,self.towerRSSICB)
 
         rospy.sleep(1.)
 
@@ -196,8 +217,8 @@ class bug_gazebo:
     
 
     def rosloop(self):
-        #bug_controller = GradientBugController()
-        bug_controller = WallFollowerController()
+        bug_controller = GradientBugController()
+        #bug_controller = WallFollowerController()
 
 
         self.distance_from_wall =0.7
@@ -211,23 +232,31 @@ class bug_gazebo:
 
         prev_heading = 0.0
         
-        #rospy.wait_for_service('/indoor_gen')
-        #indoor_gen = rospy.ServiceProxy('/indoor_gen',Trigger)
-        #indoor_gen()
+        rospy.wait_for_service('/indoor_gen')
+        indoor_gen = rospy.ServiceProxy('/indoor_gen',Trigger)
+        indoor_gen()
         
         
-        #spawn_env = rospy.ServiceProxy('/spawn_generated_environment',Empty)
-        #spawn_env()
+        spawn_env = rospy.ServiceProxy('/spawn_generated_environment',Empty)
+        spawn_env()
         
         
         
         
-        plt.ion()
+        '''plt.ion()
         fig = plt.figure()
         plt.ylim(-10,10)
         plt.xlim(-10,10)
+        '''
+        
+        it_plot=0
+        
+        
+        fh = open("log.txt", "w")
+        fh.write("pos_x, pos_y, pos_x_drift, pos_y_drift, pos_x_corrected, pos_y_corrected, angle_adjust\n")
+        
 
-
+        angle_adjust = 0
         while not rospy.is_shutdown():
         
             if self.first_run:
@@ -255,7 +284,8 @@ class bug_gazebo:
                     self.distance_to_goal = 10
                     self.angle_to_goal = 10
                     prev_heading = self.current_heading
-                if self.distance_to_goal<0.5 and self.coord_index is len(self.goal_coord_x)-1:
+                #if self.distance_to_goal<1.0 and self.coord_index is len(self.goal_coord_x)-1:
+                if self.distance_to_goal<1.0 and self.coord_index is len(self.goal_coord_x)-1:
                     self.state = self.transition("STOP")
             if self.state =="TURN_TO_GOAL":
                 if time.time()-self.state_start_time > 1 and logicIsCloseTo(self.current_heading,wraptopi(self.angle_to_goal),0.1):
@@ -268,7 +298,9 @@ class bug_gazebo:
                 twist.linear.z = 0.1;
             if self.state =="STATE_MACHINE":
 
-                twist = bug_controller.stateMachine(self.front_range,self.right_range, self.left_range, self.current_heading, wraptopi(self.angle_to_goal), self.distance_to_goal)
+                #twist = bug_controller.stateMachine(self.front_range,self.right_range, self.left_range, self.current_heading, wraptopi(self.angle_to_goal), self.distance_to_goal)
+                twist, angle_adjust = bug_controller.stateMachine(self.front_range,self.right_range, self.left_range, self.current_heading_drift, wraptopi(self.angle_to_goal_drift-self.current_heading_drift), self.distance_to_goal_drift,self.rssi_to_tower,self.gazebo_time)
+                #twist = bug_controller.stateMachine(self.front_range,self.right_range, self.left_range, wraptopi(self.current_heading), wraptopi(self.angle_to_goal_drift), self.distance_to_goal_drift,self.rssi_to_tower)
 
                 
             if self.state =="TURN_TO_GOAL":
@@ -282,7 +314,7 @@ class bug_gazebo:
                 twist.angular.z = 0.0;
 
             
-
+                    
             
 
             
@@ -293,22 +325,33 @@ class bug_gazebo:
 
              
 
+            '''       
+            if it_plot > 100:
+                plt.plot(self.groundtruth_pose.pose.position.x,self.groundtruth_pose.pose.position.y, 'go')
+                plt.hold(True)
+    
+                plt.plot(self.odometry.pose.position.x,self.odometry.pose.position.y, 'ro')
+    
+                plt.hold(True)
+                
+                #plt.plot(self.gazebo_time,self.rssi_to_tower,'ro')
+               # plt.hold(True)
+
+                fig.canvas.draw()
+                it_plot = 0
+            else:
+                it_plot=it_plot+1
+            '''
+
+            odometry_adjusted = self.adjusted_odometry(angle_adjust,self.distance_to_goal_drift)
             
-                            
-            ''' 
-            plt.plot(self.groundtruth_pose.pose.position.x,self.groundtruth_pose.pose.position.y, 'go')
-            plt.hold(True)
-
-            plt.plot(self.odometry.pose.position.x,self.odometry.pose.position.y, 'ro')
-
-            plt.hold(True)
-            fig.canvas.draw()
-            ''' 
             #plt.show(block = False)
                 
             #print("heading", self.current_heading, self.current_heading_drift)
             #print("angle goal", self.angle_to_goal, self.angle_to_goal_drift)
             #print("angle distance", self.distance_to_goal, self.distance_to_goal_drift)
+
+            fh.write("%f, %f,  %f, %f, %f, %f, %f\n"% (self.groundtruth_pose.pose.position.x,self.groundtruth_pose.pose.position.y,self.odometry.pose.position.x,self.odometry.pose.position.y,odometry_adjusted.pose.position.x,odometry_adjusted.pose.position.y,angle_adjust ))
 
             
             print self.state
@@ -320,6 +363,9 @@ class bug_gazebo:
             
 
 if __name__ == '__main__':
+    
+    
+    
 
     bug_gazebo = bug_gazebo()
     bug_gazebo.init()
