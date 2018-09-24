@@ -29,70 +29,43 @@ def wraptopi(number):
 
 
 class GradientBugController:
+    #First run of the algorithm
+    first_run = True
+    
+    #For wall follower
     wall_follower = WallFollower()
     ref_distance_from_wall = 1.0
-    max_speed = 0.2
-    front_range = 0.0
-    right_range = 0.0
-    max_rate = 0.5
+    already_reversed_direction=False
+    direction = 1
+    
+    #For state transitions
     state_start_time = 0
     state = "FORWARD"
-    previous_heading = 0.0;
-    angle=2000
-    calculate_angle_first_time = True;
-    around_corner_first_turn = True;
-    heading_prev = 0.0
-    heading = 0.0
-    first_scan = True
-    scan_obstacle_done = False
-    scan_obstacle_array = []
-    scan_angle_array = []
-    wall_angle = 0
-    first_run = True
-    prev_distance = 1000.0
-    already_reversed_direction=False
     state_WF =  ""
-    direction = 1
-   # rssi_array =  np.zeros(360)
 
-    '''plt.ion()
-    fig = plt.figure()
-    ax = plt.subplot(111)#, projection='polar')
-    it_plot = 0'''
+    #Max values
+    max_speed = 0.2
+    max_rate = 0.5
     
-    rssi_tower_prev = -100
-    
+    # previous values
+    heading_prev = 0.0
+    prev_distance = 1000.0
+
+    #For RSSI measurements
     do_circle = False
-    
-    angle_rssi = 2000
-    
-    
+    angle_rssi = 0
     rssi_array=[]
     rssi_heading_array =[]
-    
     rssi_goal_angle_adjust = 0;
 
-    '''
-    def plotHeadingRSSI(self,rssi_value):
-        #self.ax.plot(self.heading,-1.0*rssi_value,'ro')
-        heading_array = range(-180,180)
-        #self.ax.plot(time.time(),-1.0*rssi_value,'ro')
-        
-        self.ax.plot(heading_array,self.rssi_array,'ro')
-
-        self.ax.grid(True)
-
-        #plt.hold(True)
-
-        self.fig.canvas.draw()
-
-     '''
-    def init(self,new_ref_distance_from_wall,max_speed_ref = 0.2):
+    
+    def init(self,new_ref_distance_from_wall,max_speed_ref = 0.2, max_rate_ref = 0.5):
         self.ref_distance_from_wall = new_ref_distance_from_wall
         self.state = "ROTATE_TO_GOAL"
         self.max_speed = max_speed_ref
+        self.max_rate = max_rate_ref
+        self.rssi_goal_angle_adjust = 0
         self.first_run = True
-        #self.rssi_array =  np.zeros(360)
 
 
     def take_off(self):
@@ -142,43 +115,6 @@ class GradientBugController:
         return twist
     
         
-    def calculateWallRANSAC(self, range_ptx,angle_pty, scan_angle):
-        
-        points_ptx =  np.zeros(len(angle_pty))
-        points_pty =  np.zeros(len(angle_pty))
-        
-        for it in range(0,len(angle_pty)):
-            points_ptx[it] = math.sin(angle_pty[it])*range_ptx[it]
-            points_pty[it] = math.cos(angle_pty[it])*range_ptx[it]
-            if np.isnan(points_ptx[it]) or np.isinf(points_ptx[it]):
-                points_ptx[it] = 0
-            if np.isnan(points_pty[it]) or np.isinf(points_pty[it]):
-                points_pty[it] = 0
-            
-
-        
-        ransac = linear_model.RANSACRegressor()
-        ransac.fit(points_ptx.reshape(-1,1), points_pty.reshape(-1,1) )
-        inlier_mask = ransac.inlier_mask_
-        outlier_mask = np.logical_not(inlier_mask)
-        line_y_ransac = ransac.predict(points_ptx.reshape(-1,1))
-
-        wall_angle = ransac.estimator_.coef_[0][0]
-        
-        #plt.plot(points_ptx,points_pty)
-       # plt.hold(True)
-        #plt.plot(points_ptx,line_y_ransac);  
-        #plt.ylim(0,1.1)            
-        #plt.show()
-        #time.sleep(10)
-        
-        return wall_angle
-    '''
-
-    def rssiFillArray(self,heading,rssi_value):
-        heading_deg = int(np.rad2deg(heading))
-        self.rssi_array[heading_deg] = rssi_value
-       ''' 
 
 
 
@@ -201,10 +137,14 @@ class GradientBugController:
         
 
     def stateMachine(self, front_range, right_range, left_range, current_heading, angle_goal, distance_goal, rssi_to_tower, correct_time, from_gazebo = True, WF_argos = None, RRT= None):
+        
+        #Initialization of the twist command
         twist = Twist()
+        
+        #Save simulator time as the correct time
         self.simulator_time = correct_time;
-        print("time", correct_time)
 
+        # Deal with none values of the range sensors
         if front_range == None:
             front_range = inf
 
@@ -213,167 +153,128 @@ class GradientBugController:
             
         if left_range == None:
             left_range = inf
-
-        
-        '''
-        if self.it_plot>10:
-            self.plotHeadingRSSI(rssi_to_tower)
-            self.it_plot = 0
-        else:
-            self.it_plot=self.it_plot+1
-        '''
-        
-        
+ 
+        # First thing to take care of at the very first run
         if self.first_run is True:
             self.prev_distance = distance_goal;
             self.angle_rssi = angle_goal
             self.first_run = False
 
-        
-        '''
-        if self.rssi_tower_prev - rssi_to_tower < 0:
-            print("going right direction")
-        elif self.rssi_tower_prev - rssi_to_tower == 0:
-            print("going right direction with no change")
-        elif self.rssi_tower_prev - rssi_to_tower > 0:
-            print("going wrong direction!!")
-            '''
-        #print("current_heading before", current_heading)
-        #current_heading = wraptopi(current_heading - self.rssi_goal_angle_adjust)
-        #print("current_heading before", current_heading)
-        bearing = angle_goal;#wraptopi(angle_goal-current_heading)
-
-        bearing_with_adjust = angle_goal;# wraptopi(angle_goal-self.rssi_goal_angle_adjust)
+        # Bearing to goal is the angle to goal
+        #TODO check if this is also correct for the gazebo implementation....
+        bearing = angle_goal;
+        bearing_with_adjust = angle_goal #self.rssi_goal_angle_adjust;
         self.heading = current_heading;
-        print("self.rssi_goal_angle_adjust ",self.rssi_goal_angle_adjust)
-        print("self.current_heading ",current_heading)
-        print("self.angle_rssi",self.angle_rssi)
-        print("self.angle_goal",angle_goal)
 
-        #print("angle_bearing", bearing)
-        #print("angle_bearing with adjust", bearing_with_adjust)
+        print("before", self.state)
+        print(bearing_with_adjust)
+        print(self.rssi_goal_angle_adjust)
         
-       # bearing_with_adjust = bearing
 
-        #print("rssi adjust angle", self.rssi_goal_angle_adjust)
-        # Handle State transition
+        #################### STATE TRANSITIONS#####################
+        # Forward
         if self.state == "FORWARD":
+            #If need to do circle and 1 second has passed
             if self.do_circle == True and correct_time-self.state_start_time > 1:
+                # Initialize rssi and heading arrays and save previous heading
                 rssi_array = []
                 rssi_heading_array = []
                 self.heading_prev=current_heading
-                self.state = self.transition("ROTATE_180")
+                # Go to rotate_360
+                self.state = self.transition("ROTATE_360")
+            #If front range is activated to be close et the other wall    
             if front_range < self.ref_distance_from_wall+0.2:
-                self.state = self.transition("WALL_FOLLOWING")
+                #Initialize the wallfollower
                 if from_gazebo:
                     self.wall_follower.init(self.ref_distance_from_wall,self.max_speed)
                 else:
                     WF_argos.init()
-
-                
-                self.heading_prev = self.heading
-                #self.first_scan = True
-                #self.scan_obstacle_done = False
-                #self.scan_obstacle_array = []
-                #self.scan_angle_array = []
+                # save previous heading and initialize the reverse option
+                self.heading_prev = current_heading
                 self.already_reversed_direction = False
+                # To evaluate the wall angle for the local direction (replace scan_obstacle)
                 if left_range<right_range and left_range < 2.0:
                     self.direction = -1
                 if left_range>right_range and right_range < 2.0:
                     self.direction = 1
                 if left_range>2.0 and right_range>2.0:
                     self.direction = 1
-
-
-
-                
-            '''
-            if right_range < self.ref_distance_from_wall+0.2:
-                self.direction = 1
+                #Go to wall_following
                 self.state = self.transition("WALL_FOLLOWING")
-                self.wall_follower.init(self.ref_distance_from_wall,self.max_speed)
-                self.heading_prev = self.heading
-                            '''
-
-
-        elif self.state == "HOVER":
-            if   time.time()-self.state_start_time>1:
-                self.state = self.transition("SCAN_OBSTACLE")
-        elif self.state =="SCAN_OBSTACLE":
-            if self.scan_obstacle_done is True:
-                self.wall_angle=self.calculateWallRANSAC(self.scan_obstacle_array,self.scan_angle_array,0.52)
-                self.state = "WALL_FOLLOWING"
+        # Reverse (local) direction
         elif self.state =="REVERSE_DIRECTION":
+            # if the front range sensor is activated, go back to wall_following in the other direction
             if front_range < self.ref_distance_from_wall+0.2:
-                self.state = self.transition("WALL_FOLLOWING")
+                # Reverse local direction flag
                 if self.direction == -1:
                     self.wall_angle = -1
                 elif self.direction == 1:
                     self.wall_angle = 1
+                #Go to wall_following
+                self.state = self.transition("WALL_FOLLOWING")
+        # Wall Following
         elif self.state == "WALL_FOLLOWING":
+            # If it is rotating around a wall, front range is free and it is close to the angle_goal
             if self.state_WF is "ROTATE_AROUND_WALL" or self.state_WF is "ROTATE_AROUND_CORNER":
                 if front_range>1.5 and (bearing_with_adjust>-0.2 and bearing_with_adjust < 0.2):
-                    self.state = self.transition("ROTATE_TO_GOAL")
+                    # Indicate that the rssi finding circle needs to be made
                     self.do_circle = True
-
-                    
-
+                    # Goto rotate_to_goal
+                    self.state = self.transition("ROTATE_TO_GOAL")
+            # If the previous saved distance is smaller than the current one and it hasn't reverse direction yet
             if self.prev_distance<distance_goal and self.already_reversed_direction is False:
-                self.state = self.transition("REVERSE_DIRECTION")
+                # Already reversed direction to prevent it from happinening again during the wallfolowing
                 self.already_reversed_direction = True
-
-        elif self.state=="ROTATE_TO_GOAL":            
+                # Go to reverse_direction
+                self.state = self.transition("REVERSE_DIRECTION")
+        # Rotate to Goal
+        elif self.state=="ROTATE_TO_GOAL": 
+            # If the heading is close to the angle goal           
             if self.logicIsCloseTo(bearing_with_adjust,0,0.1):
+                #Go to forward
                 self.state = self.transition("FORWARD")
-
-        elif self.state=="ROTATE_180":
+        #Rotate 360
+        elif self.state=="ROTATE_360":
+            # if 2 seconds has passed, the previous heading is close to the current heading and do_circle flag is on
             if correct_time-self.state_start_time > 2 and self.logicIsCloseTo(current_heading,wraptopi( self.heading_prev),0.1) and self.do_circle:
+                #do_circle flag is on false so it knows it is finished
                 self.do_circle = False
-                print(self.rssi_array)
-                print(self.rssi_heading_array)
+                #Filter the saved rssi array
                 rssi_array_filt = medfilt(self.rssi_array,9)
-                                
-                                
-                print(self.rssi_array)
+                #Find the maximum RSSI and it's index               
                 index_max_rssi =np.argmax(rssi_array_filt)
-                print(index_max_rssi)
+                # Retrieve the offset angle to the goal
                 self.angle_rssi =wraptopi(self.rssi_heading_array[index_max_rssi]+3.14)
+                # Determine the adjusted goal angle, which is added to the heading later
+                self.rssi_goal_angle_adjust = self.angle_rssi
+                # Go to rotate to goal
                 self.state = self.transition("ROTATE_TO_GOAL")
-                self.rssi_goal_angle_adjust = self.angle_rssi#wraptopi(current_heading-self.angle_rssi)
+
+
+        print("after",self.state)
+
         
 
-
-        
-
-        # Handle actions
+        #################### STATE ACTIONS #####################
+        #Forward
         if self.state == "FORWARD":
+            #Go forward
             twist=self.twistForward()
-            if(left_range<self.ref_distance_from_wall):
-                twist.linear.y = twist.linear.y-0.2;
-            if(right_range<self.ref_distance_from_wall):
-                twist.linear.y = twist.linear.y+0.2;
             
-        if self.state == "HOVER":
-            twist = Twist()
-            twist.linear.x = 0
-            twist.angular.z = 0
-        if self.state =="SCAN_OBSTACLE":
-            scan_angle = 0.52;
-            if self.first_scan is True:
-                twist=self.twistTurn(-0.5)
-                if  self.logicIsCloseTo(wraptopi(self.heading_prev - scan_angle),current_heading,0.1):
-                    self.first_scan = False
-            else:
-                self.scan_obstacle_array.append(front_range)
-                self.scan_angle_array.append(wraptopi(self.heading_prev - current_heading))
-                
-                twist=self.twistTurn(0.5)
-                if self.logicIsCloseTo(wraptopi(self.heading_prev + scan_angle),current_heading,0.1):
-                    self.scan_obstacle_done = True
+            if from_gazebo:
+                # If the left or right range is activated during forward, move it away from the wall
+                #TODO: find out if this is still necessary
+                if(left_range<self.ref_distance_from_wall):
+                    twist.linear.y = twist.linear.y-0.2;
+                if(right_range<self.ref_distance_from_wall):
+                    twist.linear.y = twist.linear.y+0.2;
+        # Reverse direction
         if self.state =="REVERSE_DIRECTION":
+            # Just turn towards the wall
             twist = self.twistTurn(self.direction*-0.5)
+        # Wall_follwoing
         elif self.state == "WALL_FOLLOWING":
-            #if self.wall_angle <= 0:
+            # Use the wallfollowing controller, unique per simulated robot
             if from_gazebo is True:
                 if self.direction is 1:
                     twist, self.state_WF = self.wall_follower.wall_follower(front_range,right_range, current_heading,self.direction)
@@ -384,50 +285,28 @@ class GradientBugController:
                     twist, self.state_WF = WF_argos.wallFollowingController(RRT.getRangeRight(),RRT.getRangeFrontRight(), RRT.getLowestValue(),RRT.getHeading(),RRT.getArgosTime(),self.direction)
                 else:
                     twist, self.state_WF = WF_argos.wallFollowingController(RRT.getRangeLeft(),RRT.getRangeFrontLeft(), RRT.getLowestValue(),RRT.getHeading(),RRT.getArgosTime(),self.direction)
-                
+                # Reverse the heading command 
+                #TODO check this out why this is the case
                 twist.angular.z = twist.angular.z*-1
-
-                print("ranges", RRT.getRangeFrontRight(),RRT.getRangeRight(),RRT.getRangeFrontLeft(),RRT.getRangeLeft())
+        #Rotate to goal
         elif self.state=="ROTATE_TO_GOAL":
-            
+            # To make sure that the robot is turning in the right direction to sae time
             if bearing_with_adjust>0:
                 twist = self.twistTurn(self.max_rate)
             else:
                 twist = self.twistTurn(-1*self.max_rate)
-        elif self.state =="ROTATE_180":
+        # Rotate 360 degrees
+        elif self.state =="ROTATE_360":
+            # If do_circle flag is on, save the rssi and angle goal in a array
             if self.do_circle is True:
                 self.rssi_array.append(rssi_to_tower)
                 self.rssi_heading_array.append(angle_goal)
-                
-
-            twist.linear.x = 0.0;
-            twist.linear.y = 0.0;
-            twist.angular.z = self.max_rate;
+            #Turn with max_rate
+            twist = self.twistTurn(self.max_rate)
             
             
 
-        print(self.state)
-
-
-        self.lastTwist = twist
-        
-        
-        
-        '''
-        
-        if(self.state =="FORWARD" or self.state_WF =="FORWARD_ALONG_WALL"):
-            self.rssi_array = np.zeros(360)
-        
-        
-        if(self.state_WF == "ROTATE_IN_CORNER" or self.state_WF == "ROTATE_AROUND_WALL" or self.state =="ROTATE_TO_GOAL"):
-            self.rssiFillArray(current_heading,rssi_to_tower)
-            self.plotHeadingRSSI(rssi_to_tower)
-            
-            
-            '''
-        
-        self.rssi_tower_prev = rssi_to_tower
-        
+                    
         return twist, self.rssi_goal_angle_adjust
 
 
