@@ -9,7 +9,7 @@ from sensor_msgs.msg import LaserScan
 from sensor_msgs.msg import Imu
 from wall_follower_multi_ranger import WallFollower
 
-#import matplotlib.pyplot as plt
+
 from sklearn import linear_model, datasets
 import matplotlib.pyplot as plt
 from scipy.signal import medfilt
@@ -147,10 +147,8 @@ class GradientBugController:
         # Deal with none values of the range sensors
         if front_range == None:
             front_range = inf
-
         if right_range == None:
             right_range = inf
-            
         if left_range == None:
             left_range = inf
  
@@ -177,8 +175,8 @@ class GradientBugController:
             #If need to do circle and 1 second has passed
             if self.do_circle == True and correct_time-self.state_start_time > 1:
                 # Initialize rssi and heading arrays and save previous heading
-                rssi_array = []
-                rssi_heading_array = []
+                self.rssi_array = []
+                self.rssi_heading_array = []
                 self.heading_prev=current_heading
                 # Go to rotate_360
                 self.state = self.transition("ROTATE_360")
@@ -246,9 +244,13 @@ class GradientBugController:
                 # Retrieve the offset angle to the goal
                 self.angle_rssi =wraptopi(self.rssi_heading_array[index_max_rssi]+3.14)
                 # Determine the adjusted goal angle, which is added to the heading later
-                self.rssi_goal_angle_adjust = self.angle_rssi
+                self.rssi_goal_angle_adjust = wraptopi(current_heading-self.angle_rssi)
                 # Go to rotate to goal
                 self.state = self.transition("ROTATE_TO_GOAL")
+                np.savetxt('plot_rssi_array.txt',self.rssi_array,delimiter=',')
+                np.savetxt('plot_rssi_heading_array.txt',self.rssi_heading_array,delimiter=',')
+
+
 
 
         print("after",self.state)
@@ -300,9 +302,9 @@ class GradientBugController:
             # If do_circle flag is on, save the rssi and angle goal in a array
             if self.do_circle is True:
                 self.rssi_array.append(rssi_to_tower)
-                self.rssi_heading_array.append(angle_goal)
+                self.rssi_heading_array.append(current_heading)
             #Turn with max_rate
-            twist = self.twistTurn(self.max_rate)
+            twist = self.twistTurn(self.max_rate*0.5)
             
             
 
