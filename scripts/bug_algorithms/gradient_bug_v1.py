@@ -52,7 +52,7 @@ class GradientBugController:
     prev_distance = 1000.0
 
     #For RSSI measurements
-    do_circle = False
+    do_circle = True
     angle_rssi = 0
     rssi_array=[]
     rssi_heading_array =[]
@@ -61,12 +61,15 @@ class GradientBugController:
     
     def init(self,new_ref_distance_from_wall,max_speed_ref = 0.2, max_rate_ref = 0.5):
         self.ref_distance_from_wall = new_ref_distance_from_wall
-        self.state = "ROTATE_TO_GOAL"
+        self.state = "ROTATE_360"
         self.max_speed = max_speed_ref
         self.max_rate = max_rate_ref
         self.rssi_goal_angle_adjust = 0
         self.first_run = True
-
+        self.do_circle = True
+        self.rssi_array = []
+        self.rssi_heading_array = []
+        self.state_start_time = 0
 
     def take_off(self):
         twist = Twist()
@@ -154,21 +157,29 @@ class GradientBugController:
  
         # First thing to take care of at the very first run
         if self.first_run is True:
-            self.prev_distance = distance_goal;
-            self.angle_rssi = angle_goal
+            self.prev_distance = 2000;#distance_goal;
+            self.angle_rssi = 2000;
             self.first_run = False
+            self.heading_prev=current_heading
+            self.state_start_time = correct_time
+            
+            
+
+        #if angle_goal is not 2000:
+        #    self.angle_rssi = current_heading - angle_goal
+            
 
         # Bearing to goal is the angle to goal
         #TODO check if this is also correct for the gazebo implementation....
         bearing = angle_goal;
-        bearing_with_adjust = angle_goal #self.rssi_goal_angle_adjust;
+        bearing_with_adjust = angle_goal#current_heading - angle_goal+self.angle_rssi;#self.rssi_goal_angle_adjust;
         self.heading = current_heading;
 
-        print("before", self.state)
-        print(bearing_with_adjust)
-        print(self.rssi_goal_angle_adjust)
-        
 
+        print('angle_goal',self.angle_rssi)
+        print('current_heading', current_heading)
+
+        print('forward',self.state)
         #################### STATE TRANSITIONS#####################
         # Forward
         if self.state == "FORWARD":
@@ -205,36 +216,52 @@ class GradientBugController:
             if front_range < self.ref_distance_from_wall+0.2:
                 # Reverse local direction flag
                 if self.direction == -1:
-                    self.wall_angle = -1
+                    self.direction = 1
                 elif self.direction == 1:
-                    self.wall_angle = 1
+                    self.direction = -1
+                if from_gazebo:
+                    self.wall_follower.init(self.ref_distance_from_wall,self.max_speed)
+                else:
+                    WF_argos.init()
                 #Go to wall_following
                 self.state = self.transition("WALL_FOLLOWING")
         # Wall Following
         elif self.state == "WALL_FOLLOWING":
+            print("check distance",self.prev_distance,distance_goal,self.already_reversed_direction)
             # If it is rotating around a wall, front range is free and it is close to the angle_goal
             if self.state_WF is "ROTATE_AROUND_WALL" or self.state_WF is "ROTATE_AROUND_CORNER":
-                if front_range>1.5 and (bearing_with_adjust>-0.2 and bearing_with_adjust < 0.2):
+               # if front_range>1.5 and (bearing_with_adjust>-0.2 and bearing_with_adjust < 0.2):
+                if front_range>1.5 and ((current_heading-self.angle_rssi)>-0.2 and (current_heading-self.angle_rssi) < 0.2):
+
                     # Indicate that the rssi finding circle needs to be made
                     self.do_circle = True
+                   # self.angle_rssi = 2000
+                    #Save previous distance for reverse direction possibility
                     # Goto rotate_to_goal
                     self.state = self.transition("ROTATE_TO_GOAL")
             # If the previous saved distance is smaller than the current one and it hasn't reverse direction yet
-            if self.prev_distance<distance_goal and self.already_reversed_direction is False:
+            if self.prev_distance+2.0<distance_goal and self.already_reversed_direction is False:
+            #if correct_time-self.state_start_time > 8  and self.already_reversed_direction is False:
                 # Already reversed direction to prevent it from happinening again during the wallfolowing
                 self.already_reversed_direction = True
                 # Go to reverse_direction
                 self.state = self.transition("REVERSE_DIRECTION")
         # Rotate to Goal
         elif self.state=="ROTATE_TO_GOAL": 
-            # If the heading is close to the angle goal           
-            if self.logicIsCloseTo(bearing_with_adjust,0,0.1):
+            # If the heading is close to the angle goal   
+            print("heading",current_heading,self.angle_rssi)        
+            #if (self.angle_rssi is 2000 and self.logicIsCloseTo(bearing_with_adjust,0,0.1)) or (self.angle_rssi is not 2000 and self.logicIsCloseTo(bearing_with_adjust,0,0.1)):
+            if  (self.angle_rssi is 2000 and  self.logicIsCloseTo(angle_goal,0,0.1)) or (self.angle_rssi is not 2000 and self.logicIsCloseTo(current_heading,self.angle_rssi,0.1)):
+                #
+                self.prev_distance = distance_goal
                 #Go to forward
                 self.state = self.transition("FORWARD")
         #Rotate 360
         elif self.state=="ROTATE_360":
+            
             # if 2 seconds has passed, the previous heading is close to the current heading and do_circle flag is on
-            if correct_time-self.state_start_time > 2 and self.logicIsCloseTo(current_heading,wraptopi( self.heading_prev),0.1) and self.do_circle:
+            print("check rotate",correct_time,self.state_start_time,current_heading,self.heading_prev,self.do_circle)
+            if correct_time-self.state_start_time > 3 and self.logicIsCloseTo(current_heading,wraptopi( self.heading_prev),0.1) and self.do_circle:
                 #do_circle flag is on false so it knows it is finished
                 self.do_circle = False
                 #Filter the saved rssi array
@@ -244,12 +271,12 @@ class GradientBugController:
                 # Retrieve the offset angle to the goal
                 self.angle_rssi =wraptopi(self.rssi_heading_array[index_max_rssi]+3.14)
                 # Determine the adjusted goal angle, which is added to the heading later
-                self.rssi_goal_angle_adjust = wraptopi(current_heading-self.angle_rssi)
+                self.rssi_goal_angle_adjust = wraptopi(self.angle_rssi-current_heading)
                 # Go to rotate to goal
                 self.state = self.transition("ROTATE_TO_GOAL")
                 np.savetxt('plot_rssi_array.txt',self.rssi_array,delimiter=',')
                 np.savetxt('plot_rssi_heading_array.txt',self.rssi_heading_array,delimiter=',')
-
+                np.savetxt('plot_angle_rssi.txt',[self.angle_rssi, self.rssi_goal_angle_adjust])
 
 
 
@@ -293,18 +320,21 @@ class GradientBugController:
         #Rotate to goal
         elif self.state=="ROTATE_TO_GOAL":
             # To make sure that the robot is turning in the right direction to sae time
-            if bearing_with_adjust>0:
+            if (self.angle_rssi-current_heading)>0:
                 twist = self.twistTurn(self.max_rate)
             else:
                 twist = self.twistTurn(-1*self.max_rate)
         # Rotate 360 degrees
         elif self.state =="ROTATE_360":
+            twist = self.twistTurn(0)
+
             # If do_circle flag is on, save the rssi and angle goal in a array
-            if self.do_circle is True:
+            if self.do_circle is True and correct_time-self.state_start_time > 1:
                 self.rssi_array.append(rssi_to_tower)
                 self.rssi_heading_array.append(current_heading)
             #Turn with max_rate
-            twist = self.twistTurn(self.max_rate*0.5)
+                twist = self.twistTurn(self.max_rate*0.5)
+            
             
             
 
