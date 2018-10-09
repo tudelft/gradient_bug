@@ -57,6 +57,12 @@ class GradientBugController:
     rssi_array=[]
     rssi_heading_array =[]
     rssi_goal_angle_adjust = 0;
+    
+    rssi_linear_array = []
+    rssi_linear_array_max_size = 49
+    
+    prev_rssi = 0
+    t = 0
 
     
     def init(self,new_ref_distance_from_wall,max_speed_ref = 0.2, max_rate_ref = 0.5):
@@ -69,7 +75,15 @@ class GradientBugController:
         self.do_circle = True
         self.rssi_array = []
         self.rssi_heading_array = []
+        self.rssi_linear_array = []
         self.state_start_time = 0
+        self.angle_rssi=0
+        self.heading_prev = 0
+        self.prev_distance = 1000
+        self.already_reversed_direction=False
+        self.direction = 1
+
+
 
     def take_off(self):
         twist = Twist()
@@ -141,6 +155,7 @@ class GradientBugController:
 
     def stateMachine(self, front_range, right_range, left_range, current_heading, angle_goal, distance_goal, rssi_to_tower, correct_time, from_gazebo = True, WF_argos = None, RRT= None):
         
+        
         #Initialization of the twist command
         twist = Twist()
         
@@ -160,7 +175,7 @@ class GradientBugController:
             self.prev_distance = 2000;#distance_goal;
             self.angle_rssi = 2000;
             self.first_run = False
-            self.heading_prev=current_heading
+            self.heading_prev=0#current_heading
             self.state_start_time = correct_time
             
             
@@ -176,13 +191,26 @@ class GradientBugController:
         self.heading = current_heading;
 
 
-        print('angle_goal',self.angle_rssi)
-        print('current_heading', current_heading)
-
-        print('forward',self.state)
+     #   print('angle_goal',self.angle_rssi)
+      #  print('current_heading', current_heading)
+#
+     #   print('forward',self.state)
         #################### STATE TRANSITIONS#####################
         # Forward
         if self.state == "FORWARD":
+            
+            if self.do_circle == False:
+                self.rssi_linear_array.append(rssi_to_tower-self.prev_rssi)
+                if len(self.rssi_linear_array)>self.rssi_linear_array_max_size:
+                    del self.rssi_linear_array[0]
+                    #print("mean rssi", np.mean(self.rssi_linear_array))
+                    #print("rssi", rssi_to_tower , self.prev_rssi)
+                    if np.mean(self.rssi_linear_array)<0:
+                       # print(self.rssi_linear_array)
+                        self.do_circle = True
+                    
+                 
+                    
             #If need to do circle and 1 second has passed
             if self.do_circle == True and correct_time-self.state_start_time > 1:
                 # Initialize rssi and heading arrays and save previous heading
@@ -227,7 +255,7 @@ class GradientBugController:
                 self.state = self.transition("WALL_FOLLOWING")
         # Wall Following
         elif self.state == "WALL_FOLLOWING":
-            print("check distance",self.prev_distance,distance_goal,self.already_reversed_direction)
+          #  print("check distance",self.prev_distance,distance_goal,self.already_reversed_direction)
             # If it is rotating around a wall, front range is free and it is close to the angle_goal
             if self.state_WF is "ROTATE_AROUND_WALL" or self.state_WF is "ROTATE_AROUND_CORNER":
                # if front_range>1.5 and (bearing_with_adjust>-0.2 and bearing_with_adjust < 0.2):
@@ -249,38 +277,46 @@ class GradientBugController:
         # Rotate to Goal
         elif self.state=="ROTATE_TO_GOAL": 
             # If the heading is close to the angle goal   
-            print("heading",current_heading,self.angle_rssi)        
             #if (self.angle_rssi is 2000 and self.logicIsCloseTo(bearing_with_adjust,0,0.1)) or (self.angle_rssi is not 2000 and self.logicIsCloseTo(bearing_with_adjust,0,0.1)):
             if  (self.angle_rssi is 2000 and  self.logicIsCloseTo(angle_goal,0,0.1)) or (self.angle_rssi is not 2000 and self.logicIsCloseTo(current_heading,self.angle_rssi,0.1)):
                 #
                 self.prev_distance = distance_goal
                 #Go to forward
+                self.rssi_linear_array=[]
                 self.state = self.transition("FORWARD")
         #Rotate 360
         elif self.state=="ROTATE_360":
             
             # if 2 seconds has passed, the previous heading is close to the current heading and do_circle flag is on
-            print("check rotate",correct_time,self.state_start_time,current_heading,self.heading_prev,self.do_circle)
+           # print("check rotate",correct_time,self.state_start_time,current_heading,self.heading_prev,self.do_circle)
             if correct_time-self.state_start_time > 3 and self.logicIsCloseTo(current_heading,wraptopi( self.heading_prev),0.1) and self.do_circle:
                 #do_circle flag is on false so it knows it is finished
                 self.do_circle = False
-                #Filter the saved rssi array
-                rssi_array_filt = medfilt(self.rssi_array,9)
-                #Find the maximum RSSI and it's index               
-                index_max_rssi =np.argmax(rssi_array_filt)
-                # Retrieve the offset angle to the goal
-                self.angle_rssi =wraptopi(self.rssi_heading_array[index_max_rssi]+3.14)
+                
+                if(np.mean(self.rssi_array)<-44):
+                    
+    
+                    #Filter the saved rssi array
+                    rssi_array_filt = medfilt(self.rssi_array,9)
+                    #Find the maximum RSSI and it's index               
+                    index_max_rssi =np.argmax(rssi_array_filt)
+                    # Retrieve the offset angle to the goal
+                    self.angle_rssi =wraptopi(self.rssi_heading_array[index_max_rssi]+3.14)
+                #print(self.angle_rssi)
+                #print(rssi_array_filt)
+                
+                    
                 # Determine the adjusted goal angle, which is added to the heading later
                 self.rssi_goal_angle_adjust = wraptopi(self.angle_rssi-current_heading)
                 # Go to rotate to goal
                 self.state = self.transition("ROTATE_TO_GOAL")
-                np.savetxt('plot_rssi_array.txt',self.rssi_array,delimiter=',')
-                np.savetxt('plot_rssi_heading_array.txt',self.rssi_heading_array,delimiter=',')
-                np.savetxt('plot_angle_rssi.txt',[self.angle_rssi, self.rssi_goal_angle_adjust])
+             #   np.savetxt('plot_rssi_array.txt',self.rssi_array,delimiter=',')
+             #   np.savetxt('plot_rssi_heading_array.txt',self.rssi_heading_array,delimiter=',')
+             #   np.savetxt('plot_angle_rssi.txt',[self.angle_rssi, self.rssi_goal_angle_adjust])
 
 
-
-        print("after",self.state)
+       
+        #print(self.state)
 
         
 
@@ -335,9 +371,14 @@ class GradientBugController:
             #Turn with max_rate
                 twist = self.twistTurn(self.max_rate*0.5)
             
-            
-            
-
+       # diff_time =  time.time()-self.t
+       # print(diff_time)
+        #if( diff_time < 0.015):
+          #  time.sleep(0.015-diff_time)
+        
+        self.t = time.time()
+        
+        self.prev_rssi = rssi_to_tower
                     
         return twist, self.rssi_goal_angle_adjust
 
