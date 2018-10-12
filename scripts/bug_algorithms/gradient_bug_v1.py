@@ -8,12 +8,14 @@ from hector_uav_msgs.srv import EnableMotors
 from sensor_msgs.msg import LaserScan
 from sensor_msgs.msg import Imu
 from wall_follower_multi_ranger import WallFollower
+from geometry_msgs.msg import PoseStamped
 
 
 from sklearn import linear_model, datasets
 import matplotlib.pyplot as plt
 from scipy.signal import medfilt
 
+from copy import deepcopy
 
 import time
 #import tf
@@ -63,7 +65,11 @@ class GradientBugController:
     
     prev_rssi = 0
     t = 0
-
+    
+    saved_pose = PoseStamped()
+    saved_pose_hit = PoseStamped()
+    overwrite_and_reverse_direction = False
+    not_out_of_the_woods = True
     
     def init(self,new_ref_distance_from_wall,max_speed_ref = 0.2, max_rate_ref = 0.5):
         self.ref_distance_from_wall = new_ref_distance_from_wall
@@ -82,8 +88,12 @@ class GradientBugController:
         self.prev_distance = 1000
         self.already_reversed_direction=False
         self.direction = 1
+        self.saved_pose = PoseStamped()
+        self.saved_pose_hit = PoseStamped()
 
-
+        self.overwrite_and_reverse_direction = False
+        self.not_out_of_the_woods = True
+        self.loop_angle=0
 
     def take_off(self):
         twist = Twist()
@@ -153,7 +163,7 @@ class GradientBugController:
 
         
 
-    def stateMachine(self, front_range, right_range, left_range, current_heading, angle_goal, distance_goal, rssi_to_tower, correct_time, from_gazebo = True, WF_argos = None, RRT= None):
+    def stateMachine(self, front_range, right_range, left_range, current_heading, angle_goal, distance_goal, rssi_to_tower,odometry, correct_time, from_gazebo = True, WF_argos = None, RRT= None):
         
         
         #Initialization of the twist command
@@ -190,11 +200,6 @@ class GradientBugController:
         bearing_with_adjust = angle_goal#current_heading - angle_goal+self.angle_rssi;#self.rssi_goal_angle_adjust;
         self.heading = current_heading;
 
-
-     #   print('angle_goal',self.angle_rssi)
-      #  print('current_heading', current_heading)
-#
-     #   print('forward',self.state)
         #################### STATE TRANSITIONS#####################
         # Forward
         if self.state == "FORWARD":
@@ -209,8 +214,13 @@ class GradientBugController:
                        # print(self.rssi_linear_array)
                         self.do_circle = True
                     
-                 
-                    
+                    if  ((self.logicIsCloseTo(self.saved_pose.pose.position.x, odometry.pose.position.x,1)==True ) and \
+                         (self.logicIsCloseTo(self.saved_pose.pose.position.y, odometry.pose.position.y,1)==True)):
+                        self.not_out_of_the_woods = True
+                    else:
+                        self.not_out_of_the_woods = False
+                        
+                                           
             #If need to do circle and 1 second has passed
             if self.do_circle == True and correct_time-self.state_start_time > 1:
                 # Initialize rssi and heading arrays and save previous heading
@@ -219,8 +229,13 @@ class GradientBugController:
                 self.heading_prev=current_heading
                 # Go to rotate_360
                 self.state = self.transition("ROTATE_360")
+                pass
             #If front range is activated to be close et the other wall    
             if front_range < self.ref_distance_from_wall+0.2:
+                
+
+                
+                
                 #Initialize the wallfollower
                 if from_gazebo:
                     self.wall_follower.init(self.ref_distance_from_wall,self.max_speed)
@@ -230,14 +245,28 @@ class GradientBugController:
                 self.heading_prev = current_heading
                 self.already_reversed_direction = False
                 # To evaluate the wall angle for the local direction (replace scan_obstacle)
-                if left_range<right_range and left_range < 2.0:
-                    self.direction = -1
-                if left_range>right_range and right_range < 2.0:
-                    self.direction = 1
-                if left_range>2.0 and right_range>2.0:
-                    self.direction = 1
+
+                
+                if self.overwrite_and_reverse_direction and self.not_out_of_the_woods == False:
+                    print("overwrite direction!")
+                    self.direction = -1*self.direction
+                    self.overwrite_and_reverse_direction = False
+                else:
+                    if left_range<right_range and left_range < 2.0:
+                        self.direction = -1
+                    elif left_range>right_range and right_range < 2.0:
+                        self.direction = 1
+                    elif left_range>2.0 and right_range>2.0:
+                        self.direction = 1
+                    else:
+                        self.direction = 1
+                    
+                    
+                self.saved_pose_hit = deepcopy(odometry)
+
                 #Go to wall_following
                 self.state = self.transition("WALL_FOLLOWING")
+                pass
         # Reverse (local) direction
         elif self.state =="REVERSE_DIRECTION":
             # if the front range sensor is activated, go back to wall_following in the other direction
@@ -253,37 +282,58 @@ class GradientBugController:
                     WF_argos.init()
                 #Go to wall_following
                 self.state = self.transition("WALL_FOLLOWING")
+                pass
         # Wall Following
         elif self.state == "WALL_FOLLOWING":
-          #  print("check distance",self.prev_distance,distance_goal,self.already_reversed_direction)
+            rel_x_loop = odometry.pose.position.x- self.saved_pose_hit.pose.position.x 
+            rel_y_loop = odometry.pose.position.y - self.saved_pose_hit.pose.position.y  
+            
+            temp_loop_angle =  wraptopi(np.arctan2(rel_y_loop,rel_x_loop))
+            self.loop_angle =float(temp_loop_angle[0])
+
+            
             # If it is rotating around a wall, front range is free and it is close to the angle_goal
             if self.state_WF is "ROTATE_AROUND_WALL" or self.state_WF is "ROTATE_AROUND_CORNER":
-               # if front_range>1.5 and (bearing_with_adjust>-0.2 and bearing_with_adjust < 0.2):
-                if front_range>1.5 and ((current_heading-self.angle_rssi)>-0.2 and (current_heading-self.angle_rssi) < 0.2):
-
+               #if front_range>1.5 and (bearing_with_adjust>-0.2 and bearing_with_adjust < 0.2):
+                #if front_range>1.5 and ((current_heading-self.angle_rssi)>-0.2 and (current_heading-self.angle_rssi) < 0.2): #version 1
+                if front_range>1.5 and (abs(wraptopi(current_heading-angle_goal))<0.2): #version 2
+                
                     # Indicate that the rssi finding circle needs to be made
                     self.do_circle = True
-                   # self.angle_rssi = 2000
+                    self.prev_distance = deepcopy(distance_goal)
+                    # CHeck if has been on a position before
+                    #if  ((self.logicIsCloseTo(self.saved_pose.pose.position.x, odometry.pose.position.x,1)==True ) and \
+                      #   (self.logicIsCloseTo(self.saved_pose.pose.position.y, odometry.pose.position.y,1)==True)):
+                       # print("yes!")
+                    # Check if the robot has moved behing him
+                    if abs(wraptopi(self.angle_rssi+np.pi-self.loop_angle))<0.5:
+                        self.overwrite_and_reverse_direction = True
+                    
+                    self.saved_pose = deepcopy(odometry) 
+
                     #Save previous distance for reverse direction possibility
                     # Goto rotate_to_goal
                     self.state = self.transition("ROTATE_TO_GOAL")
+                    pass
             # If the previous saved distance is smaller than the current one and it hasn't reverse direction yet
-            if self.prev_distance+2.0<distance_goal and self.already_reversed_direction is False:
-            #if correct_time-self.state_start_time > 8  and self.already_reversed_direction is False:
+            #if self.prev_distance+2.0<distance_goal and self.already_reversed_direction is False: #version 1
+            '''if  ((self.logicIsCloseTo(self.saved_pose.pose.position.x, odometry.pose.position.x,0.05)!=True ) or \
+            (self.logicIsCloseTo(self.saved_pose.pose.position.y, odometry.pose.position.y,0.05)!=True)) \
+            and self.already_reversed_direction is False: #version 2
                 # Already reversed direction to prevent it from happinening again during the wallfolowing
                 self.already_reversed_direction = True
                 # Go to reverse_direction
-                self.state = self.transition("REVERSE_DIRECTION")
+                self.state = self.transition("REVERSE_DIRECTION")'''
         # Rotate to Goal
         elif self.state=="ROTATE_TO_GOAL": 
             # If the heading is close to the angle goal   
             #if (self.angle_rssi is 2000 and self.logicIsCloseTo(bearing_with_adjust,0,0.1)) or (self.angle_rssi is not 2000 and self.logicIsCloseTo(bearing_with_adjust,0,0.1)):
             if  (self.angle_rssi is 2000 and  self.logicIsCloseTo(angle_goal,0,0.1)) or (self.angle_rssi is not 2000 and self.logicIsCloseTo(current_heading,self.angle_rssi,0.1)):
                 #
-                self.prev_distance = distance_goal
                 #Go to forward
                 self.rssi_linear_array=[]
                 self.state = self.transition("FORWARD")
+                pass
         #Rotate 360
         elif self.state=="ROTATE_360":
             
@@ -293,30 +343,30 @@ class GradientBugController:
                 #do_circle flag is on false so it knows it is finished
                 self.do_circle = False
                 
+                #To check if it's not in a "dead zone"
                 if(np.mean(self.rssi_array)<-44):
-                    
-    
                     #Filter the saved rssi array
                     rssi_array_filt = medfilt(self.rssi_array,9)
                     #Find the maximum RSSI and it's index               
                     index_max_rssi =np.argmax(rssi_array_filt)
                     # Retrieve the offset angle to the goal
                     self.angle_rssi =wraptopi(self.rssi_heading_array[index_max_rssi]+3.14)
-                #print(self.angle_rssi)
-                #print(rssi_array_filt)
                 
                     
                 # Determine the adjusted goal angle, which is added to the heading later
-                self.rssi_goal_angle_adjust = wraptopi(self.angle_rssi-current_heading)
+                self.rssi_goal_angle_adjust = wraptopi(angle_goal-self.angle_rssi)
                 # Go to rotate to goal
                 self.state = self.transition("ROTATE_TO_GOAL")
+                pass
+            
+            #For debugging in matlab, uncomment this!
              #   np.savetxt('plot_rssi_array.txt',self.rssi_array,delimiter=',')
              #   np.savetxt('plot_rssi_heading_array.txt',self.rssi_heading_array,delimiter=',')
              #   np.savetxt('plot_angle_rssi.txt',[self.angle_rssi, self.rssi_goal_angle_adjust])
 
 
-       
-        #print(self.state)
+        #print(self.direction)
+        print(self.state)
 
         
 
@@ -371,15 +421,12 @@ class GradientBugController:
             #Turn with max_rate
                 twist = self.twistTurn(self.max_rate*0.5)
             
-       # diff_time =  time.time()-self.t
-       # print(diff_time)
-        #if( diff_time < 0.015):
-          #  time.sleep(0.015-diff_time)
-        
-        self.t = time.time()
-        
+            
+        #Save previous RSSI for next loop
         self.prev_rssi = rssi_to_tower
-                    
+        
+        
+        #return twist and the adjusted angle goal by the rssi            
         return twist, self.rssi_goal_angle_adjust
 
 
