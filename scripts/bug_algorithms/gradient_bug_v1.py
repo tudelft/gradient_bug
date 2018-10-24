@@ -210,7 +210,7 @@ class GradientBugController:
                     del self.rssi_linear_array[0]
                     #print("mean rssi", np.mean(self.rssi_linear_array))
                     #print("rssi", rssi_to_tower , self.prev_rssi)
-                    if np.mean(self.rssi_linear_array)<0:
+                    if np.mean(self.rssi_linear_array)>0:
                        # print(self.rssi_linear_array)
                         self.do_circle = True
                     
@@ -366,7 +366,7 @@ class GradientBugController:
 
 
         #print(self.direction)
-        print(self.state)
+       # print(self.state)
 
         
 

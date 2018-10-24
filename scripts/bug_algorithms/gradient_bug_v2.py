@@ -231,6 +231,7 @@ class GradientBugController:
 
                 #Go to wall_following
                 self.state = self.transition("WALL_FOLLOWING")
+                self.already_reversed_direction = False
                 pass
 
         # Wall Following
@@ -243,9 +244,10 @@ class GradientBugController:
             temp_loop_angle =  wraptopi(np.arctan2(rel_y_loop,rel_x_loop))
             self.loop_angle =float(temp_loop_angle[0])
             
-            if bot_is_close:
+            if bot_is_close and self.already_reversed_direction is False:
+                self.already_reversed_direction=True
                 self.state = self.transition("REVERSE_DIRECTION")
-            
+                pass
 
             
             # If it is rotating around a wall, front range is free and it is close to the angle_goal
@@ -255,7 +257,7 @@ class GradientBugController:
                     # Check if the robot has moved behing him
                     if (abs(wraptopi(current_heading+bearing_goal+np.pi-self.loop_angle))<0.5):
                         self.overwrite_and_reverse_direction = True
-                        print("LOOPING!")
+                        #print("LOOPING!")
                     
                     self.saved_pose = deepcopy(odometry) 
 
@@ -294,7 +296,7 @@ class GradientBugController:
              #   np.savetxt('plot_angle_rssi.txt',[self.angle_rssi, self.rssi_goal_angle_adjust])
 
 
-        print(self.state)
+        #print(self.state)
 
         #################### STATE ACTIONS #####################
         #Forward
