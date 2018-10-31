@@ -26,6 +26,9 @@ import numpy as np
 
 from amcl.cfg.AMCLConfig import inf
 
+import random
+
+
 def wraptopi(number):
     return  ( number + np.pi) % (2 * np.pi ) - np.pi
 
@@ -252,15 +255,30 @@ class GradientBugController:
                     self.direction = -1*self.direction
                     self.overwrite_and_reverse_direction = False
                 else:
+                    rand_num = random.randint(1,101)
+                    print(rand_num)
+                    print(left_range,right_range)
                     if left_range<right_range and left_range < 2.0:
-                        self.direction = -1
+                        if rand_num<70:
+                            self.direction = -1
+                        else:
+                            self.direction = 1
+
                     elif left_range>right_range and right_range < 2.0:
-                        self.direction = 1
+                        if rand_num<70:
+                            self.direction = 1
+                        else:
+                            self.direction = -1
                     elif left_range>2.0 and right_range>2.0:
-                        self.direction = 1
+                        if rand_num<50:
+                            self.direction = 1
+                        else:
+                            self.direction = -1
                     else:
-                        self.direction = 1
-                    
+                        if rand_num<50:
+                            self.direction = -1
+                        else:
+                            self.direction = 1                    
                     
                 self.saved_pose_hit = deepcopy(odometry)
 
