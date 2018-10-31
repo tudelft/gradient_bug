@@ -18,6 +18,7 @@
 #include "geometry_msgs/Twist.h"
 #include "geometry_msgs/PoseStamped.h"
 
+#include <random>
 
 #include <sstream>
 
@@ -32,6 +33,8 @@ float right_range;
 float left_range;
 float height;
 float heading;
+
+std::default_random_engine generator;
 
 void frontRangeCB(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
@@ -62,6 +65,26 @@ void poseCB(const geometry_msgs::PoseStamped::ConstPtr& msg)
 
 	mat.getEulerYPR(yaw, pitch, roll);
 	heading = yaw;
+
+}
+
+void noisy_twist(geometry_msgs::Twist *twist, double std_lin, double std_rate)
+{
+    const double mean_lin_x = twist->linear.x;
+    const double mean_lin_y = twist->linear.y;
+    const double mean_rate = twist->angular.z;
+
+    const double stddev_lin = std_lin;
+    const double stddev_rate = std_rate;
+
+    std::normal_distribution<double> dist_lin_x(mean_lin_x, stddev_lin);
+    std::normal_distribution<double> dist_lin_y(mean_lin_y, stddev_lin);
+    std::normal_distribution<double> dist_rate(mean_rate, stddev_rate);
+
+	twist->linear.x = dist_lin_x(generator);
+	twist->linear.y = dist_lin_y(generator);
+	twist->angular.z = dist_rate(generator);
+
 
 }
 
@@ -102,6 +125,9 @@ int main(int argc, char **argv)
 
 	while (ros::ok())
 	{
+		//Fix for now for the gazebo bug
+		if(height > 2.99)
+			height = 0;
 
 		if(taken_off == false )
 		{
@@ -126,6 +152,7 @@ int main(int argc, char **argv)
 			twist_msg.linear.z = 0.0;
 		}
 
+		noisy_twist(&twist_msg,0.01,0.002);
 
 		pub_cmdvel.publish(twist_msg);
 
