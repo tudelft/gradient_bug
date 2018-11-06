@@ -81,9 +81,11 @@ void noisy_twist(geometry_msgs::Twist *twist, double std_lin, double std_rate)
     std::normal_distribution<double> dist_lin_y(mean_lin_y, stddev_lin);
     std::normal_distribution<double> dist_rate(mean_rate, stddev_rate);
 
+
 	twist->linear.x = dist_lin_x(generator);
 	twist->linear.y = dist_lin_y(generator);
 	twist->angular.z = dist_rate(generator);
+
 
 
 }
@@ -117,7 +119,7 @@ int main(int argc, char **argv)
 	srv.request.enable = true;
 	client.call(srv);
 	// Init wall follower
-	wall_follower_init(1.0, 0.5);
+	wall_follower_init(0.5, 0.5);
 
 	bool taken_off = false;
 	geometry_msgs::Twist twist_msg;
@@ -144,7 +146,7 @@ int main(int argc, char **argv)
 			float vel_y;
 			float vel_w;
 
-			wall_follower(&vel_x, &vel_y, &vel_w, front_range,  right_range, heading,  1);
+			wall_follower(&vel_x, &vel_y, &vel_w, front_range,  left_range, heading,  -1);
 
 			twist_msg.linear.x = vel_x;
 			twist_msg.linear.y = vel_y;
@@ -152,7 +154,7 @@ int main(int argc, char **argv)
 			twist_msg.linear.z = 0.0;
 		}
 
-		noisy_twist(&twist_msg,0.01,0.002);
+		noisy_twist(&twist_msg,0.05,0.1);
 
 		pub_cmdvel.publish(twist_msg);
 

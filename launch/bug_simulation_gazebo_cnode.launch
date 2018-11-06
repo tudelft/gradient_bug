@@ -5,7 +5,7 @@
   <node pkg="gradient_bug" type="bug_gazebo_bridge" name="bug_gazebo_bridge" output="screen">
   </node>
   <!-- Start Gazebo with wg world running in (max) realtime -->
-  <arg name="world" default="$(find gradient_bug)/world/Lblocks.world"/>
+  <arg name="world" default="$(find gradient_bug)/world/verdieping.world"/>
   <arg name="gui" default="true"/>
   <arg name="args" default=""/>
   
@@ -22,7 +22,9 @@
   <!-- Spawn simulated quadrotor uav -->
   <include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" >
     <arg name="model" value="$(find hector_quadrotor_description)/urdf/quadrotor_with_multiranger.gazebo.xacro"/>
-    <arg name="x" value="0"/>
+    <arg name="x" value="-17"/>
+    <arg name="y" value="3"/>
+    <arg name="Y" value="0"/>
     <arg name="tf_prefix" value="check"/>
   </include>
 
