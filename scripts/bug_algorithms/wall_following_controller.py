@@ -80,6 +80,7 @@ class WallFollowerController:
     def stateMachine(self, front_range, right_range, left_range, current_heading, angle_goal, distance_goal):
 
         twist = Twist()
+        state_WF = "NONE"
 
         if front_range == None:
             front_range = inf
@@ -97,11 +98,13 @@ class WallFollowerController:
             twist=self.twistForward()
         elif self.state == "WALL_FOLLOWING":
             twist, state_WF = self.wall_follower.wall_follower(front_range,right_range, current_heading, 1)
-
+            #twist.linear.x = 0.0;
+            #twist.linear.y = 0.0;
+            #twist.angular.z = 0.0;
         print(self.state)
 
         self.lastTwist = twist
-        return twist
+        return twist, state_WF
 
 
 

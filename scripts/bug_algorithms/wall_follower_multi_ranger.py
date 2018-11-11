@@ -130,6 +130,7 @@ class WallFollower:
         elif self.state == "HOVER":
             print(state)
         elif self.state == "TURN_TO_FIND_WALL":
+            print("ranges", front_range,side_range)
             if (side_range < self.ref_distance_from_wall/math.cos(0.78)+0.2 and front_range < self.ref_distance_from_wall/math.cos(0.78)+0.2):
                 self.previous_heading = current_heading;
                 self.angle = self.direction*( 1.57 - math.atan(front_range/side_range))
@@ -179,7 +180,7 @@ class WallFollower:
                 twist = self.twistTurn(self.max_rate);
         elif self.state =="TURN_TO_ALLIGN_TO_WALL":
             twist = self.hover()
-            if (time.time() - self.state_start_time) > 1:
+            if (time.time() - self.state_start_time) > 2:
                 twist = self.twistTurn(self.max_rate)
         elif self.state =="FORWARD_ALONG_WALL":
             twist = self.twistForwardAlongWall(side_range)

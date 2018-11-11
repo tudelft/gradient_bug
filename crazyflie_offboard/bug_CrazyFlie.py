@@ -36,7 +36,7 @@ from cflib.crazyflie.log import LogConfig
 
 
 
-sys.path.append('/home/knmcguire/Software/catkin_ws/src/gradient_bug/scripts')
+sys.path.append('/home/knmcguire/Software/catkin_ws/src/gradient_bug/scripts/bug_algorithms')
 
 from wall_following_controller import WallFollowerController
 from com_controller import ComController
@@ -85,6 +85,8 @@ class WF_crazyflie:
     # Callbacks
     front_range = 0.0
     right_range = 0.0
+    left_range = 0.0
+    back_range = 0.0
     altitude = 0.0
     state = "TAKE_OFF"
     current_heading = 0.0
@@ -92,11 +94,11 @@ class WF_crazyflie:
     #Crazyflie 1
     #URI = 'radio://0/40/250K/E7E7E7E7EA'
     #Crazyflie 2
-    #URI = 'radio://0/60/250K/E7E7E7E7EB'
+    URI = 'radio://0/40/250K/E7E7E7E702'
     #Crazyflie 3
     #URI = 'radio://0/80/250K/E7E7E7E7E7'
     #Crazyflie 4
-    URI = 'radio://0/50/250K/E7E7E7E7EC'
+    #URI = 'radio://0/50/250K/E7E7E7E7EC'
 
     angle_to_goal = 0.0
     distance_to_goal = 0.0
@@ -123,6 +125,18 @@ class WF_crazyflie:
     def data_received(self, timestamp, data, logconf):
 
         self.current_heading = math.radians(data['stabilizer.yaw'])
+        self.front_range = float(data["updown_laser.front_range"])/1000
+        if self.front_range >8:
+            self.front_range = None
+        self.left_range = float(data["updown_laser.left_range"])/1000
+        if self.left_range >8:
+            self.left_range = None
+        self.back_range = float(data["updown_laser.back_range"])/1000
+        if self.back_range >8:
+            self.back_range = None
+        self.right_range = float(data["updown_laser.right_range"])/1000
+        if self.right_range >8:
+            self.right_range = None
 
     def crazyFlieloop(self):
         #wall_follower = WallFollowerController()
@@ -138,17 +152,23 @@ class WF_crazyflie:
         lg_states.add_variable('stabilizer.yaw')
         lg_states.add_variable('kalman_states.ox')
         lg_states.add_variable('kalman_states.oy')
-        lg_states.add_variable('rssiCR.rssi')
+        lg_states.add_variable('updown_laser.back_range')
+        lg_states.add_variable('updown_laser.front_range')
+        lg_states.add_variable('updown_laser.left_range')
+        lg_states.add_variable('updown_laser.right_range')
+        lg_states.data_received_cb.add_callback(self.data_received)
+
+        ''' lg_states.add_variable('rssiCR.rssi')
         lg_states.add_variable('rssiCR.distance')
 
         lg_states.add_variable('rssiCR.pos_x')
-        lg_states.add_variable('rssiCR.pos_y')
+        lg_states.add_variable('rssiCR.pos_y')'''
 
         fh = open("log_test.txt", "w")
     
 
         with SyncCrazyflie(self.URI, cf=cf) as scf:
-            with MotionCommander(scf,0.8) as motion_commander:
+            with MotionCommander(scf,0.3) as motion_commander:
                 with MultiRanger(scf) as multi_ranger:
                     with Stabilization(scf) as stabilization:
                         with SyncLogger(scf, lg_states) as logger_states:
@@ -159,9 +179,9 @@ class WF_crazyflie:
                             keep_flying = True
                             time.sleep(1)
 
-                            param_name = "rssiCR.start"
-                            param_value = "1"
-                            cf.param.set_value(param_name, param_value)
+                           # param_name = "rssiCR.start"
+                           # param_value = "1"
+                           # cf.param.set_value(param_name, param_value)
 
                             twist.linear.x = 0.2
                             twist.linear.y = 0.0
@@ -181,6 +201,7 @@ class WF_crazyflie:
                             first_run = True
                             x_0 = 0
                             y_0 = 0
+                            state_WF="FORWARD"
                             while keep_flying:
 
                                 # crazyflie related stuff
@@ -188,13 +209,15 @@ class WF_crazyflie:
                                     data = log_entry_1[1]
 
                                     heading = math.radians(float(data["stabilizer.yaw"]));
-                                    pos_x =-1*float(data["rssiCR.pos_x"])#float(data["kalman_states.ox"])-0.5
-                                    pos_y =-1*float(data["rssiCR.pos_y"])#float(data["kalman_states.oy"])-1.5
+                                    pos_x =float(data["kalman_states.ox"])-0.5
+                                    pos_y =float(data["kalman_states.oy"])-1.5
                                     kalman_x = float(data["kalman_states.ox"])
                                     kalman_y = float(data["kalman_states.oy"])
-                                    rssi = float(data["rssiCR.rssi"])
-                                    distance = float(data["rssiCR.distance"])
-                                    
+                                    #rssi = float(data["rssiCR.rssi"])
+                                    #distance = float(data["rssiCR.distance"])
+
+
+
                                     if first_run is True:
                                         x_0 = kalman_x
                                         y_0 = kalman_y
@@ -232,7 +255,15 @@ class WF_crazyflie:
 
                                 #Handle state actions
                                 if state=="STATE_MACHINE":
-                                    twist = bug_controller.stateMachine(multi_ranger.front,multi_ranger.right,multi_ranger.left,stabilization.heading,wraptopi(self.angle_to_goal),self.distance_to_goal)
+                                    #twist = bug_controller.stateMachine(multi_ranger.front,multi_ranger.right,multi_ranger.left,stabilization.heading,wraptopi(self.angle_to_goal),self.distance_to_goal)
+                                    print("front_range",self.front_range)
+                                    twist,state_WF = bug_controller.stateMachine(self.front_range,self.left_range,self.right_range,stabilization.heading,wraptopi(self.angle_to_goal),self.distance_to_goal)
+                                    twist.linear.x = 0.5;
+                                    twist.linear.y = 0.0;
+                                    
+                                    circumference = 2 * 0.5 * math.pi
+                                    rate = 2*math.pi * 0.5 / circumference
+                                    twist.angular.z = rate;
                                 if state =="TURN_TO_GOAL":
                                     twist.linear.x = 0.0;
                                     twist.linear.y = 0.0;
@@ -242,18 +273,28 @@ class WF_crazyflie:
                                     twist.linear.y = 0.0;
                                     twist.angular.z = 0.0;
                                     keep_flying = False
-                                if len(pos)>0:
+
+                                if self.front_range == None:
+                                    self.front_range = 8
+                                if self.back_range == None:
+                                    self.back_range = 8
+                                if self.left_range == None:
+                                    self.left_range = 8
+                                if self.right_range == None:
+                                    self.right_range = 8					
+                                fh.write("%f, %f,  %f, %f, %s\n"% (self.front_range,self.back_range,self.left_range,self.right_range,state_WF))
+                                ''' if len(pos)>0:
                                     fh.write("%f, %f,  %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n"% (twist.linear.x, -1*math.degrees(twist.angular.z), self.distance_to_goal,self.angle_to_goal, stabilization.heading, kalman_x, kalman_y, pos_x, pos_y,pos[0],pos[2],rssi,distance))
                                 else:
-                                    fh.write("%f, %f,  %f, %f, %f, %f, %f, %f, %f, 0, 0, %f, %f\n"% (twist.linear.x, -1*math.degrees(twist.angular.z), self.distance_to_goal,self.angle_to_goal, stabilization.heading, kalman_x, kalman_y, pos_x, pos_y,rssi,distance))
+                                    fh.write("%f, %f,  %f, %f, %f, %f, %f, %f, %f, 0, 0, %f, %f\n"% (twist.linear.x, -1*math.degrees(twist.angular.z), self.distance_to_goal,self.angle_to_goal, stabilization.heading, kalman_x, kalman_y, pos_x, pos_y,rssi,distance))'''
 
                                 print(state)
                                 motion_commander._set_vel_setpoint(twist.linear.x,twist.linear.y,0,-1*math.degrees(twist.angular.z))
-
-                                if multi_ranger.up is not None :
-                                    if multi_ranger.up < 0.2:
+                                '''
+                                if self.back_range is not None :
+                                    if self.back_range < 0.2:
                                         print("up range is activated")
-                                        keep_flying = False
+                                        keep_flying = False'''
 
                             motion_commander.stop()
 
