@@ -127,7 +127,8 @@ include_directories(
 lib/wallfollowing_multiranger_onboard/
 )
 #add_library(wallfollowing_onboard lib/wallfollowing_multiranger_onboard.c )
-add_library(wallfollowing_onboard /home/knmcguire/Software/crazyflie/crazyflie-firmware/src/lib/wallfollowing_multiranger_onboard/wallfollowing_multiranger_onboard.c )
+add_library(wallfollowing_onboard /home/knmcguire/Software/crazyflie/crazyflie-firmware/src/lib/wallfollowing_multiranger_onboard/wallfollowing_multiranger_onboard.c /home/knmcguire/Software/crazyflie/crazyflie-firmware/src/lib/wallfollowing_multiranger_onboard/lobe_navigation.c /home/knmcguire/Software/crazyflie/crazyflie-firmware/src/lib/wallfollowing_multiranger_onboard/com_bug_with_looping.c )
+
 add_executable(bug_gazebo_bridge src/bug_gazebo_bridge.cpp)
 
 target_link_libraries(bug_gazebo_bridge ${catkin_LIBRARIES} wallfollowing_onboard)

@@ -24,7 +24,10 @@
 
 extern "C" {
 
-#include "../lib/wallfollowing_multiranger_onboard.h"
+#include "/home/knmcguire/Software/crazyflie/crazyflie-firmware/src/lib/wallfollowing_multiranger_onboard/wallfollowing_multiranger_onboard.h"
+#include "/home/knmcguire/Software/crazyflie/crazyflie-firmware/src/lib/wallfollowing_multiranger_onboard/lobe_navigation.h"
+#include "/home/knmcguire/Software/crazyflie/crazyflie-firmware/src/lib/wallfollowing_multiranger_onboard/com_bug_with_looping.h"
+
 }
 
 // laser range callback
@@ -33,6 +36,8 @@ float right_range;
 float left_range;
 float height;
 float heading;
+float pos_x;
+float pos_y;
 
 std::default_random_engine generator;
 
@@ -66,6 +71,9 @@ void poseCB(const geometry_msgs::PoseStamped::ConstPtr& msg)
 	mat.getEulerYPR(yaw, pitch, roll);
 	heading = yaw;
 
+	pos_x = msg->pose.position.x;
+	pos_y = msg->pose.position.y;
+
 }
 
 void noisy_twist(geometry_msgs::Twist *twist, double std_lin, double std_rate)
@@ -89,7 +97,17 @@ void noisy_twist(geometry_msgs::Twist *twist, double std_lin, double std_rate)
 
 
 }
+static float wraptopi(float number)
+{
 
+	if(number>(float)M_PI)
+		return (number-(float)(2*M_PI));
+	else if(number< (float)(-1*M_PI))
+		return (number+(float)(2*M_PI));
+	else
+		return (number);
+
+}
 int main(int argc, char **argv)
 {
 	// Init functions
@@ -119,7 +137,9 @@ int main(int argc, char **argv)
 	srv.request.enable = true;
 	client.call(srv);
 	// Init wall follower
-	wall_follower_init(0.5, 0.5);
+	//wall_follower_init(0.5, 0.5);
+	init_lobe_navigator();
+	//init_com_bug_loop_controller(0.5, 0.5);
 
 	bool taken_off = false;
 	geometry_msgs::Twist twist_msg;
@@ -146,7 +166,39 @@ int main(int argc, char **argv)
 			float vel_y;
 			float vel_w;
 
-			wall_follower(&vel_x, &vel_y, &vel_w, front_range,  left_range, heading,  -1);
+			//wall_follower(&vel_x, &vel_y, &vel_w, front_range,  left_range, heading,  -1);
+			float beacon_angle = atan2(pos_y,pos_x);
+			float beacon_distance = sqrt(pos_x*pos_x+pos_y*pos_y);
+		    std::normal_distribution<float> dist_distance((float)(beacon_distance), 3);
+		    std::normal_distribution<float> dist_angle((float)(beacon_angle), 0.8);
+
+			float noisy_beacon_distance =dist_distance(generator);
+			float noisy_beacon_angle = dist_angle(generator);
+
+			//RSSI = Pn - 10*gamma*log10(distance)
+			float Pn = -45.0f;
+			float gamma_rssi = 4.0f;
+
+			float noisy_RSSI = Pn - 10*gamma_rssi*log10(noisy_beacon_distance);
+			float noisy_RSSI_bearing = noisy_RSSI+ (noisy_RSSI-Pn)*fabs(wraptopi(noisy_beacon_angle-heading));
+
+			if(noisy_RSSI_bearing>44)
+				noisy_RSSI_bearing = -44;
+
+			uint8_t noisy_RSSI_bearing_uint8 = (uint8_t)(-1*noisy_RSSI_bearing);
+
+		   /* std::normal_distribution<float> dist_rssi((float)(dummy_rssi), 10);
+
+			printf("heading %f beacon_angle %f pos_x %f pos_y %f\n",heading,beacon_angle,pos_x,pos_y);
+			uint8_t dummy_rssi = 44+(uint8_t)(fabs(wraptopi(beacon_angle-heading))*20.0f);
+
+		    std::normal_distribution<float> dist_rssi((float)(dummy_rssi), 10);
+		    uint8_t noisy_rssi = dist_rssi(generator);*/
+			float rssi_angle_save = 0;
+			lobe_navigator(&vel_x, &vel_y, &vel_w, &rssi_angle_save,front_range, left_range, heading, pos_x, pos_y,noisy_RSSI_bearing_uint8);
+
+			//com_bug_loop_controller(&vel_x, &vel_y, &vel_w, front_range, left_range, heading, pos_x, pos_y);
+
 
 			twist_msg.linear.x = vel_x;
 			twist_msg.linear.y = vel_y;

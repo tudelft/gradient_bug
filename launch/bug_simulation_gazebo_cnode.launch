@@ -22,7 +22,7 @@
   <!-- Spawn simulated quadrotor uav -->
   <include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" >
     <arg name="model" value="$(find hector_quadrotor_description)/urdf/quadrotor_with_multiranger.gazebo.xacro"/>
-    <arg name="x" value="-17"/>
+    <arg name="x" value="17"/>
     <arg name="y" value="3"/>
     <arg name="Y" value="0"/>
     <arg name="tf_prefix" value="check"/>
