@@ -31,6 +31,7 @@ extern "C" {
 #include "/home/knmcguire/Software/crazyflie/crazyflie-firmware/src/lib/wallfollowing_multiranger_onboard/com_bug_with_looping_and_avoid.h"
 #include "/home/knmcguire/Software/crazyflie/crazyflie-firmware/src/lib/wallfollowing_multiranger_onboard/lobe_bug_with_looping.h"
 #include "/home/knmcguire/Software/crazyflie/crazyflie-firmware/src/lib/wallfollowing_multiranger_onboard/median_filter.h"
+#include "/home/knmcguire/Software/crazyflie/crazyflie-firmware/src/lib/wallfollowing_multiranger_onboard/gradient_bug_with_looping.h"
 
 
 }
@@ -181,7 +182,8 @@ int main(int argc, char **argv)
 	//init_com_bug_loop_controller(0.5, 0.5);
 	//init_wall_follower_and_avoid_controller(0.5, 0.5,begin_direction);
 	//init_com_bug_loop_avoid_controller(0.5, 0.5);
-	init_lobe_bug_loop_controller(0.5, 0.5);
+	//init_lobe_bug_loop_controller(0.5, 0.5);
+	init_gradient_bug_loop_controller(0.5, 0.5);
 
 	bool taken_off = false;
 	geometry_msgs::Twist twist_msg;
@@ -214,8 +216,8 @@ int main(int argc, char **argv)
 			//wall_follower(&vel_x, &vel_y, &vel_w, front_range,  left_range, heading,  -1);
 			float beacon_angle = atan2(pos_y,pos_x);
 			float beacon_distance = sqrt(pos_x*pos_x+pos_y*pos_y);
-		    std::normal_distribution<float> dist_distance((float)(beacon_distance), 3);
-		    std::normal_distribution<float> dist_angle((float)(beacon_angle), 0.8);
+		    std::normal_distribution<float> dist_distance((float)(beacon_distance), 0.01);
+		    std::normal_distribution<float> dist_angle((float)(beacon_angle), 0.01);
 
 			float noisy_beacon_distance =dist_distance(generator);
 			float noisy_beacon_angle = dist_angle(generator);
@@ -230,9 +232,10 @@ int main(int argc, char **argv)
 			if(noisy_RSSI_bearing>44)
 				noisy_RSSI_bearing = -44;
 
-			uint8_t noisy_RSSI_bearing_uint8 = (uint8_t)(-1*noisy_RSSI_bearing);
-			uint8_t rssi_inter_filtered = (uint8_t)update_median_filter_i(&medFiltRssibeacon,noisy_RSSI_bearing_uint8);
+			uint8_t noisy_RSSI_bearing_uint8 = (uint8_t)(-1*noisy_RSSI);
+			uint8_t rssi_beacon_filtered = (uint8_t)update_median_filter_i(&medFiltRssibeacon,noisy_RSSI_bearing_uint8);
 
+			printf("rssi %d\n",rssi_beacon_filtered);
 		   // std::normal_distribution<float> dist_rssi((float)(dummy_rssi), 10);
 
 			//printf("heading %f beacon_angle %f noisybeaconangle %f pos_x %f pos_y %f\n",heading,beacon_angle,noisy_beacon_angle,pos_x,pos_y);
@@ -242,7 +245,9 @@ int main(int argc, char **argv)
 		    uint8_t noisy_rssi = dist_rssi(generator);*/
 			float rssi_angle_save = 0;
 			//lobe_navigator(&vel_x, &vel_y, &vel_w, &rssi_angle_save,front_range, left_range, heading, pos_x, pos_y,noisy_RSSI_bearing_uint8);
-			lobe_bug_loop_controller(&vel_x, &vel_y, &vel_w, front_range, left_range, right_range, heading, pos_x, pos_y,rssi_inter_filtered);
+			//lobe_bug_loop_controller(&vel_x, &vel_y, &vel_w, front_range, left_range, right_range, heading, pos_x, pos_y,rssi_beacon_filtered);
+			int state_wf;
+			gradient_bug_loop_controller(&vel_x, &vel_y, &vel_w,&rssi_angle_save, &state_wf, front_range, left_range, right_range, heading, pos_x, pos_y,rssi_beacon_filtered);
 
 
 			// COMBUG_LOOPING
