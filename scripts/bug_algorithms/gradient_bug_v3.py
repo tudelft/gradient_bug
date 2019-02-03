@@ -225,10 +225,19 @@ class GradientBugController:
         wanted_angle_return = 0
         if count is not 0:
             wanted_angle_return = math.atan2(y_part/count,x_part/count)
-    
-    
-        #print("array",self.correct_heading_array)
-        #print("array",wanted_angle_return)
+            
+        '''
+        print("heading", rssi_heading)
+        print("headingarray", heading_array)
+        print("rssi diff", diff_rssi)
+        print ' '
+        print "   "+ str(self.correct_heading_array[7]) + "  "
+        print "  " + str(self.correct_heading_array[0]) + " " + str(self.correct_heading_array[6])
+        print " " + str(self.correct_heading_array[1]) + "   " + str(self.correct_heading_array[5])
+        print "  " + str(self.correct_heading_array[2]) + " " + str(self.correct_heading_array[4])
+        print "   "+ str(self.correct_heading_array[3]) + "  "
+        print ' '
+        print("wanted heading",wanted_angle_return)'''
         return wanted_angle_return
 
         
@@ -239,8 +248,7 @@ class GradientBugController:
 
     def stateMachine(self, front_range, right_range, left_range, current_heading, distance_goal,
                       rssi_to_tower,odometry, correct_time, from_gazebo = True, WF_argos = None,
-                       RRT= None, outbound = False, distance_other_bot = 5, priority=False):
-        
+                       RRT= None, outbound = False, distance_other_bot = 5, priority=False, goal_angle_other=0):
         
         #Initialization of the twist command
         twist = Twist()
@@ -285,7 +293,6 @@ class GradientBugController:
         # MOVE_OUT_OF_WAY
 
         #print self.overwrite_and_reverse_direction
-        #print self.state
         #################### STATE TRANSITIONS#####################
         # Forward
         if self.state == "FORWARD":
@@ -353,10 +360,10 @@ class GradientBugController:
             if bot_is_close and priority is False:
                 #GRADIENTBUG: See if bearing goal needs flipping or something else
                 if outbound:
-                    #if (other_goal_angle < 0 and self.angle_goal < 0) or (other_goal_angle>0 and self.angle_goal>0):
-                     #  self.angle_goal = -1* self.angle_goal
-                     #  self.goal_angle_dir = wraptopi(current_heading-self.angle_goal)
-                    self.angle_goal = self.angle_goal
+                    if (goal_angle_other < 0 and self.angle_goal < 0) or (goal_angle_other>0 and self.angle_goal>0):
+                       self.angle_goal = -1* self.angle_goal
+                       self.goal_angle_dir = wraptopi(current_heading-self.angle_goal)
+                    #self.angle_goal = self.angle_goal
                 if bot_is_really_close:
                     self.state = self.transition("MOVE_OUT_OF_WAY")
                 pass
@@ -393,7 +400,7 @@ class GradientBugController:
                     self.rssi_sample_reset = True
                     heading_rssi = current_heading
                     diff_rssi =  self.prev_rssi - rssi_to_tower
-                    #print("diff rssi", diff_rssi)
+                   # print("diff rssi", diff_rssi)
                     
                     if outbound is False:
                         self.angle_goal = self.fillHeadingArray(heading_rssi, diff_rssi, 5)
@@ -405,9 +412,11 @@ class GradientBugController:
             goal_check = self.logicIsCloseTo(current_heading-self.angle_goal, 0.0, 0.1)   
             if goal_check:
                 self.state = self.transition("FORWARD")
+                pass
+
         # Reverse (local) direction
         elif self.state =="MOVE_OUT_OF_WAY":
-            if bot_is_really_close is False:
+            if bot_is_really_close is False or priority is True:
                 #GRotate to goal
                 self.state = self.transition("ROTATE_TO_GOAL")
                 pass
@@ -465,10 +474,11 @@ class GradientBugController:
             else:
                 # In argos, just let the other bot go past you, no need to move out of way 
                 twist = self.hover()
+                
+            
     
-        
         #return twist and the adjusted angle goal by the rssi            
-        return twist, self.rssi_goal_angle_adjust
+        return twist, self.rssi_goal_angle_adjust, self.angle_goal
 
 
 

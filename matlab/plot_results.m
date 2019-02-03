@@ -8,8 +8,10 @@ clc;
     %testname = strcat(dirname,'/test_20181018_183757');   
    % testname = strcat(dirname,'/test_20180927_102815');
 
-    testname = strcat(dirname,'/test_20180926_192026');
-    %testname = strcat(dirname,'/test_20180926_233933');
+    %testname = strcat(dirname,'/test_20180926_192026');
+    testname = strcat(dirname,'/test_20180926_233933');
+    %testname = strcat(dirname,'/test_20190116_200134');
+
     made_it=[]
 
     %made_it_check = importdata(strcat(testname,'/made_it.txt'));
