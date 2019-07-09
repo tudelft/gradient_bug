@@ -27,16 +27,18 @@ testname = strcat(dirname,'/test_20190211_203758'); % 4 agents
 testname = strcat(dirname,'/test_20190213_091903'); % 10 agents
 
 
+testname = strcat(dirname,'/test_20190217_230948'); % 2 agents
+% testname = strcat(dirname,'/test_20190218_101020'); % 6 agents
 
 
+amount_of_agents = 2;
+amount_of_environments = 48
 
-amount_of_agents = 10;
-amount_of_environments = 78
 
 do_plot = false;
 
 time_treshold = 3900:2500:28900;
-time_treshold = 11900 %9000;%28900;
+time_treshold = 9000 %9000;%28900;
 size_threshold = size(time_treshold,2);
 map = jet(size_threshold);
 id_color_map = [1 0 0; 0 1 0; 0 0 1; 0.5 0.5 0; 0 0.5 0.5; 0.3 0.3 0.3; 0.5 0 0; 0 0.5 0; 0 0 0.5];
@@ -243,7 +245,9 @@ bar(mean([coverage_tot_return, average_coverage_per_agent, unique_coverage_per_a
 keyboard
 %% look at environment in detail
 close all
-check_environment_number = 16
+% check_environment_number = 16
+
+for check_environment_number=1:9
 
 filename = strcat(testname,'/environment',num2str(check_environment_number));
 img=255-imread(strcat(filename,'/environment.png'));
@@ -277,7 +281,10 @@ plot(trajectory(3099,2),trajectory(3099,1),'o','Color',id_color_map(itn,:),'Mark
 plot(0,0,'m*')
 
 end
+hold off
 
+keyboard
+end
 % img_bin = im2bw(img);
 % CC=bwconncomp(img_bin);
 % 
