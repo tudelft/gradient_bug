@@ -364,8 +364,8 @@ class GradientBugController:
                        self.angle_goal = -1* self.angle_goal
                        self.goal_angle_dir = wraptopi(current_heading-self.angle_goal)
                     #self.angle_goal = self.angle_goal
-                if bot_is_really_close:
-                    self.state = self.transition("MOVE_OUT_OF_WAY")
+                '''if bot_is_really_close:
+                    self.state = self.transition("MOVE_OUT_OF_WAY")'''
                 pass
 
             bearing_to_goal = wraptopi(self.angle_goal - current_heading)
