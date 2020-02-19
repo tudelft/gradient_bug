@@ -5,8 +5,9 @@
 CF_id_array=("$@")
 
 
-#Flash NRF
-cd /home/knmcguire/Software/crazyflie/crazyflie2-nrf-firmware
+#Flash NRF 
+# 
+cd /../../crazyflie2-nrf-firmware
 make clean && make BLE=0
 echo "Flash NRF"
 for i in "${CF_id_array[@]}"
@@ -33,7 +34,7 @@ python3 -m cfloader -w $URI flash cf2_nrf.bin nrf51-fw
 done
 
 #Flash STM
-cd /home/knmcguire/Software/crazyflie/crazyflie-firmware
+cd /../../crazyflie-firmware
 make clean && make
 echo "Flash STM"
 for i in "${CF_id_array[@]}"

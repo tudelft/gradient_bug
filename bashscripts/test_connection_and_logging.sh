@@ -5,7 +5,7 @@
 CF_id_array=("$@")
 #Flash NRF
 
-cd /home/knmcguire/Documents/Onedrive/PhD/system_test/scripts/python
+cd python
 echo "Start FLYING"
 radio_id=0
 for i in "${CF_id_array[@]}"
